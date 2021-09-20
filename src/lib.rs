@@ -7,7 +7,7 @@ use ndarray::Array3;
 
 mod morphology;
 
-pub use morphology::binary_erosion;
+pub use morphology::{binary_dilation, binary_erosion};
 
 /// 3D mask
 pub type Mask = Array3<bool>;
