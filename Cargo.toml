@@ -5,6 +5,7 @@ authors = ["Nil Goyette <nil.goyette@imeka.ca>"]
 edition = "2018"
 
 repository = "https://github.com/imeka/ndarray-image"
+license = "MIT OR Apache-2.0"
 
 description = "Multidimensional image processing for ArrayBase, the n-dimensional array data structure provided by ndarray."
 keywords = ["array", "image", "multidimensional", "matrix", "ndarray"]
