@@ -1,0 +1,14 @@
+[package]
+name = "ndarray-image"
+version = "0.1.0"
+authors = ["Nil Goyette <nil.goyette@imeka.ca>"]
+edition = "2018"
+
+repository = "https://github.com/imeka/ndarray-image"
+
+description = "Multidimensional image processing for ArrayBase, the n-dimensional array data structure provided by ndarray."
+keywords = ["array", "image", "multidimensional", "matrix", "ndarray"]
+categories = ["data-structures", "science"]
+
+[dependencies]
+ndarray = { version="0.15", features = ["approx"] }
