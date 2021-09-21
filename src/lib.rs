@@ -5,8 +5,10 @@
 
 use ndarray::Array3;
 
+mod measurements;
 mod morphology;
 
+pub use measurements::{label, label_histogram, most_frequent_label};
 pub use morphology::{binary_dilation, binary_erosion};
 
 /// 3D mask

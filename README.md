@@ -10,8 +10,9 @@ It aims to:
 
 Currently available routines include:
 - Filters: none
+- Fourier filters: none
 - Interpolation: none
-- Measurements: none
+- Measurements: label
 - Morphology: binary_dilation, binary_erosion
 
 **This crate is a work-in-progress.** Some functions are provided but they offer less options than SciPy. Some are offered only in 3D, with less boundary modes, with only 2 types of structuring element, only for binary data, etc.
