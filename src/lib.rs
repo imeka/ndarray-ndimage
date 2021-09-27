@@ -5,9 +5,11 @@
 
 use ndarray::Array3;
 
+mod interpolation;
 mod measurements;
 mod morphology;
 
+pub use interpolation::{spline_filter, spline_filter1d};
 pub use measurements::{label, label_histogram, most_frequent_label};
 pub use morphology::{binary_dilation, binary_erosion};
 

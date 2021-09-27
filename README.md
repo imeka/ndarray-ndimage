@@ -11,11 +11,11 @@ It aims to:
 Currently available routines include:
 - Filters: none
 - Fourier filters: none
-- Interpolation: none
+- Interpolation: spline_filter, spline_filter1d
 - Measurements: label
 - Morphology: binary_dilation, binary_erosion
 
-**This crate is a work-in-progress.** Some functions are provided but they offer less options than SciPy. Some are offered only in 3D, with less boundary modes, with only 2 types of structuring element, only for binary data, etc.
+**This crate is a work-in-progress.** Some functions are provided but they offer less options than SciPy. Some are offered only in 3D, with less boundary modes, with only 2 types of structuring element, only for binary data, only for f64, etc.
 
 [`ndarray`]: https://github.com/rust-ndarray/ndarray
 [`scipy.ndimage`]: https://docs.scipy.org/doc/scipy/reference/ndimage.html
