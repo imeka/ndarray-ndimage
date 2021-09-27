@@ -9,7 +9,7 @@ It aims to:
 - avoid using `unsafe`. This is not a unbreakable rule. Its usage will be evaluated and dicussed in the pull requests.
 
 Currently available routines include:
-- Filters: none
+- Filters: median_filter
 - Fourier filters: none
 - Interpolation: spline_filter, spline_filter1d
 - Measurements: label
