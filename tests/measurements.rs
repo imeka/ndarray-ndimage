@@ -2,7 +2,7 @@ use ndarray::{arr3, Array3};
 
 use ndarray_image::{label, label_histogram, most_frequent_label};
 
-#[test] // Results verified with the `label` function from SciPy. (v1.4.1)
+#[test] // Results verified with the `label` function from SciPy. (v1.7.0)
 fn test_label_0() {
     let data = Array3::zeros((3, 3, 3));
     let (labels, nb_features) = label(&data.mapv(|v| v > 0));
@@ -12,7 +12,7 @@ fn test_label_0() {
     assert_eq!(most_frequent_label(&labels, nb_features), None);
 }
 
-#[test] // Results verified with the `label` function from SciPy. (v1.4.1)
+#[test] // Results verified with the `label` function from SciPy. (v1.7.0)
 fn test_label_2() {
     let data = arr3(&[
         [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
@@ -26,7 +26,7 @@ fn test_label_2() {
     assert_eq!(most_frequent_label(&labels, nb_features), Some((1, 9)));
 }
 
-#[test] // Results verified with the `label` function from SciPy. (v1.4.1)
+#[test] // Results verified with the `label` function from SciPy. (v1.7.0)
 fn test_label_3() {
     let data = arr3(&[
         [[2, 2, 2], [2, 2, 2], [0, 0, 0]],
@@ -45,7 +45,7 @@ fn test_label_3() {
     assert_eq!(most_frequent_label(&labels, nb_features), Some((2, 9)));
 }
 
-#[test] // Results verified with the `label` function from SciPy. (v1.4.1)
+#[test] // Results verified with the `label` function from SciPy. (v1.7.0)
 fn test_label_4() {
     let data = arr3(&[
         [[0.9, 0.9, 0.9, 0.9], [0.0, 0.7, 0.8, 0.7], [0.0, 0.0, 0.0, 0.0]],
@@ -92,44 +92,44 @@ fn test_label_4() {
     assert_eq!(most_frequent_label(&gt, nb_features), Some((1, 127)));
 }
 
-#[test] // Results verified with the `label` function from SciPy. (v1.4.1)
+#[test] // Results verified with the `label` function from SciPy. (v1.7.0)
 fn test_label_5() {
     let data = arr3(&[
         [
-            [0.8941500, 0.7624743, 0.7034659, 0.0, 0.7057171],
-            [0.0, 0.9999993, 0.7786798, 0.0, 0.7504451],
-            [0.0, 0.8695415, 0.9540200, 0.0, 0.0],
-            [0.0, 0.0, 0.9226291, 0.8973340, 0.0],
-            [0.0, 0.0, 0.0, 0.8656966, 0.7349845],
-            [0.0, 0.0, 0.0, 0.8072000, 0.9504627],
-            [0.0, 0.0, 0.0, 0.7867272, 0.9812511],
-            [0.0, 0.0, 0.0, 0.0, 0.9657106],
-            [0.0, 0.0, 0.0, 0.0, 0.9999991],
-            [0.0, 0.0, 0.0, 0.0, 0.9999990],
+            [0.9, 0.8, 0.7, 0.0, 0.7],
+            [0.0, 1.0, 0.8, 0.0, 0.8],
+            [0.0, 0.9, 0.9, 0.0, 0.0],
+            [0.0, 0.0, 0.9, 0.9, 0.0],
+            [0.0, 0.0, 0.0, 0.9, 0.7],
+            [0.0, 0.0, 0.0, 0.8, 1.0],
+            [0.0, 0.0, 0.0, 0.8, 1.0],
+            [0.0, 0.0, 0.0, 0.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0, 1.0],
         ],
         [
-            [0.0, 0.9999993, 0.8487516, 0.0, 0.0],
-            [0.0, 0.8976765, 0.8983747, 0.0, 0.0],
-            [0.0, 0.0, 0.8803724, 0.9538876, 0.0],
-            [0.0, 0.0, 0.0, 0.8231326, 0.7895407],
-            [0.0, 0.0, 0.0, 0.0, 0.7995385],
-            [0.0, 0.0, 0.0, 0.0, 0.7050282],
+            [0.0, 1.0, 0.8, 0.0, 0.0],
+            [0.0, 0.9, 0.9, 0.0, 0.0],
+            [0.0, 0.0, 0.9, 0.9, 0.0],
+            [0.0, 0.0, 0.0, 0.8, 0.8],
+            [0.0, 0.0, 0.0, 0.0, 0.8],
+            [0.0, 0.0, 0.0, 0.0, 0.7],
             [0.0, 0.0, 0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 0.0, 0.0],
         ],
         [
-            [0.0, 0.0, 0.9415012, 0.7960780, 0.0],
-            [0.0, 0.0, 0.9870859, 0.8210834, 0.0],
-            [0.0, 0.0, 0.0, 0.7303552, 0.0],
+            [0.0, 0.0, 0.9, 0.8, 0.0],
+            [0.0, 0.0, 1.0, 0.8, 0.0],
+            [0.0, 0.0, 0.0, 0.7, 0.0],
             [0.0, 0.0, 0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 0.0, 0.0],
-            [0.9191566, 0.0, 0.0, 0.0, 0.0],
-            [0.9999948, 0.0, 0.0, 0.0, 0.0],
+            [0.9, 0.0, 0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0, 0.0],
         ],
     ]);
     let gt = arr3(&[
@@ -170,7 +170,7 @@ fn test_label_5() {
             [3, 0, 0, 0, 0],
         ],
     ]);
-    let (labels, nb_features) = label(&data.mapv(|v| v > 0.7));
+    let (labels, nb_features) = label(&data.mapv(|v| v >= 0.7));
     assert_eq!(labels, gt);
     assert_eq!(nb_features, 3);
     assert_eq!(label_histogram(&gt, nb_features), vec![113, 33, 2, 2]);

@@ -26,6 +26,8 @@ pub fn most_frequent_label(labels: &Array3<u16>, nb_features: usize) -> Option<(
 
 /// Labels features of 3D binary images.
 ///
+/// Currently support only the Star kernel (`Kernel3d::Star`).
+///
 /// Returns the labels and the number of features.
 pub fn label(data: &Mask) -> (Array3<u16>, usize) {
     let len = data.dim().2;
