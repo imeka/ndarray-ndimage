@@ -3,12 +3,14 @@
 //! The `ndarray-image` crate provides multidimensional image processing for `ArrayBase`,
 //! the *n*-dimensional array data structure provided by [`ndarray`].
 
-use ndarray::Array3;
+use ndarray::{Array3, ShapeBuilder};
 
+mod filters;
 mod interpolation;
 mod measurements;
 mod morphology;
 
+pub use filters::median_filter;
 pub use interpolation::{spline_filter, spline_filter1d};
 pub use measurements::{label, label_histogram, most_frequent_label};
 pub use morphology::{binary_dilation, binary_erosion};
@@ -23,6 +25,17 @@ pub enum Kernel3d {
     Star,
     /// 3x3 cube.
     Full,
+}
+
+/// Utilitary function that returns a new mask of dimension `dim` with the same memory order as
+/// the input `mask`.
+pub fn mask_like(mask: &Mask, dim: (usize, usize, usize), init: bool) -> Mask {
+    // TODO `is_standard_layout` only works on owned arrays. Change it if using `ArrayBase`.
+    if mask.is_standard_layout() {
+        Mask::from_elem(dim, init)
+    } else {
+        Mask::from_elem(dim.f(), init)
+    }
 }
 
 /// Utilitary function that returns the mask dimension minus 1 on all dimensions.

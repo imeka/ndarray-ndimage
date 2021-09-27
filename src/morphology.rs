@@ -1,6 +1,6 @@
-use ndarray::{s, ShapeBuilder, Zip};
+use ndarray::{s, Zip};
 
-use crate::{dim_minus_1, Kernel3d, Mask};
+use crate::{dim_minus_1, mask_like, Kernel3d, Mask};
 
 /// Binary erosion of a 3D image.
 pub fn binary_erosion(mask: &Mask, kernel: Kernel3d) -> Mask {
@@ -41,12 +41,7 @@ pub fn binary_erosion(mask: &Mask, kernel: Kernel3d) -> Mask {
 pub fn binary_dilation(mask: &Mask, kernel: Kernel3d) -> Mask {
     let (width, height, depth) = mask.dim();
     let crop = s![1..=width, 1..=height, 1..=depth];
-    // TODO `is_standard_layout` only works on owned arrays. Change it if using `ArrayBase`.
-    let mut new_mask = if mask.is_standard_layout() {
-        Mask::from_elem((width + 2, height + 2, depth + 2), false)
-    } else {
-        Mask::from_elem((width + 2, height + 2, depth + 2).f(), false)
-    };
+    let mut new_mask = mask_like(mask, (width + 2, height + 2, depth + 2), false);
     new_mask.slice_mut(crop).assign(mask);
     let mask = new_mask.clone();
 
