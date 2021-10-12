@@ -13,7 +13,7 @@ mod pad;
 
 pub use filters::{gaussian_filter, gaussian_filter1d, median_filter};
 pub use interpolation::{spline_filter, spline_filter1d};
-pub use measurements::{label, label_histogram, most_frequent_label};
+pub use measurements::{label, label_histogram, largest_connected_components, most_frequent_label};
 pub use morphology::{binary_dilation, binary_erosion};
 pub use pad::{pad, PadMode};
 

@@ -24,6 +24,13 @@ pub fn most_frequent_label(labels: &Array3<u16>, nb_features: usize) -> Option<(
     (max > 0).then(|| ((max_index + 1) as u16, max))
 }
 
+/// Returns the bigest zone of `mask` in a new mask.
+pub fn largest_connected_components(mask: &Mask) -> Option<Mask> {
+    let (labels, nb_features) = label(mask);
+    let (right_label, _) = most_frequent_label(&labels, nb_features)?;
+    Some(labels.mapv(|l| l == right_label))
+}
+
 /// Labels features of 3D binary images.
 ///
 /// Currently support only the Star kernel (`Kernel3d::Star`).
