@@ -14,6 +14,7 @@ Currently available routines include:
 - Interpolation: spline_filter, spline_filter1d
 - Measurements: label
 - Morphology: binary_dilation, binary_erosion
+- Padding: reflect, symmetric and wrap
 
 **This crate is a work-in-progress.** Some functions are provided but they offer less options than SciPy. Some are offered only in 3D, with less boundary modes, with only 2 types of structuring element, only for binary data, only for f64, etc.
 
