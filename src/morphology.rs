@@ -1,6 +1,6 @@
 use ndarray::{s, Zip};
 
-use crate::{dim_minus_1, mask_like, Kernel3d, Mask};
+use crate::{array_like, dim_minus_1, Kernel3d, Mask};
 
 /// Binary erosion of a 3D image.
 pub fn binary_erosion(mask: &Mask, kernel: Kernel3d) -> Mask {
@@ -41,7 +41,7 @@ pub fn binary_erosion(mask: &Mask, kernel: Kernel3d) -> Mask {
 pub fn binary_dilation(mask: &Mask, kernel: Kernel3d) -> Mask {
     let (width, height, depth) = mask.dim();
     let crop = s![1..=width, 1..=height, 1..=depth];
-    let mut new_mask = mask_like(mask, (width + 2, height + 2, depth + 2), false);
+    let mut new_mask = array_like(mask, (width + 2, height + 2, depth + 2), false);
     new_mask.slice_mut(crop).assign(mask);
     let mask = new_mask.clone();
 

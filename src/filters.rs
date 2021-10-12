@@ -23,7 +23,7 @@ pub fn median_filter(mask: &Mask) -> Mask {
     let ranges_z: Vec<_> = (0..=depth).map(|z| range(z, depth)).collect();
 
     // `from_shape_fn` is strangely much slower here
-    let mut new_mask = mask_like(mask, mask.dim(), false);
+    let mut new_mask = array_like(mask, mask.dim(), false);
     Zip::indexed(&mut new_mask).for_each(|idx, new_mask| {
         let r_x = &ranges_x[idx.0];
         let r_y = &ranges_y[idx.1];

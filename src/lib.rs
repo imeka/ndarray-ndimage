@@ -3,7 +3,7 @@
 //! The `ndarray-image` crate provides multidimensional image processing for `ArrayBase`,
 //! the *n*-dimensional array data structure provided by [`ndarray`].
 
-use ndarray::{Array3, ShapeBuilder};
+use ndarray::{Array3, ArrayBase, DataOwned, Dimension, ShapeBuilder};
 
 mod filters;
 mod interpolation;
@@ -29,14 +29,20 @@ pub enum Kernel3d {
     Full,
 }
 
-/// Utilitary function that returns a new mask of dimension `dim` with the same memory order as
-/// the input `mask`.
-pub fn mask_like(mask: &Mask, dim: (usize, usize, usize), init: bool) -> Mask {
+/// Utilitary function that returns a new *n*-dimensional of dimension `shape` with the same
+/// datatype and memory order as the input `arr`.
+pub fn array_like<S, A, D, Sh>(arr: &ArrayBase<S, D>, shape: Sh, elem: A) -> ArrayBase<S, D>
+where
+    S: DataOwned<Elem = A>,
+    A: Clone,
+    D: Dimension,
+    Sh: ShapeBuilder<Dim = D>,
+{
     // TODO `is_standard_layout` only works on owned arrays. Change it if using `ArrayBase`.
-    if mask.is_standard_layout() {
-        Mask::from_elem(dim, init)
+    if arr.is_standard_layout() {
+        ArrayBase::from_elem(shape, elem)
     } else {
-        Mask::from_elem(dim.f(), init)
+        ArrayBase::from_elem(shape.f(), elem)
     }
 }
 
