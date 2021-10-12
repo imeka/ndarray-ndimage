@@ -1,6 +1,8 @@
-use ndarray::{arr3, Array3};
+use ndarray::{arr3, s, Array3};
 
-use ndarray_image::{label, label_histogram, most_frequent_label};
+use ndarray_image::{
+    label, label_histogram, largest_connected_components, most_frequent_label, Mask,
+};
 
 #[test] // Results verified with the `label` function from SciPy. (v1.7.0)
 fn test_label_0() {
@@ -175,4 +177,25 @@ fn test_label_5() {
     assert_eq!(nb_features, 3);
     assert_eq!(label_histogram(&gt, nb_features), vec![113, 33, 2, 2]);
     assert_eq!(most_frequent_label(&gt, nb_features), Some((1, 33)));
+}
+
+#[test] // Results verified manually.
+fn test_largest_connected_components() {
+    let mut mask = Mask::from_elem((10, 10, 10), false);
+    mask.slice_mut(s![2..4, 2..4, 2..4]).fill(true);
+    mask.slice_mut(s![6..8, 6..8, 6..8]).fill(true);
+    mask[(7, 7, 8)] = true;
+
+    let mut gt = Mask::from_elem(mask.dim(), false);
+    gt.slice_mut(s![6..8, 6..8, 6..8]).fill(true);
+    gt[(7, 7, 8)] = true;
+    assert_eq!(largest_connected_components(&mask).unwrap(), gt);
+
+    mask[(3, 3, 4)] = true;
+    mask[(3, 4, 4)] = true;
+    let mut gt = Mask::from_elem(mask.dim(), false);
+    gt.slice_mut(s![2..4, 2..4, 2..4]).fill(true);
+    gt[(3, 3, 4)] = true;
+    gt[(3, 4, 4)] = true;
+    assert_eq!(largest_connected_components(&mask).unwrap(), gt);
 }
