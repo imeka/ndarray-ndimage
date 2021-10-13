@@ -1,6 +1,6 @@
 use ndarray::s;
 
-use ndarray_image::{binary_dilation, binary_erosion, dim_minus_1, Kernel3d, Mask};
+use ndarray_ndimage::{binary_dilation, binary_erosion, dim_minus_1, Kernel3d, Mask};
 
 #[test] // Results verified with the `binary_erosion` function from SciPy. (v1.7.0)
 fn test_binary_erosion() {

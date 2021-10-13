@@ -1,7 +1,7 @@
 use approx::assert_relative_eq;
 use ndarray::{arr1, arr2, arr3, Array, Array1, Axis};
 
-use ndarray_image::{spline_filter, spline_filter1d};
+use ndarray_ndimage::{spline_filter, spline_filter1d};
 
 #[test] // Results verified with the `spline_filter` function from SciPy. (v1.7.0)
 fn test_spline_filter_same() {

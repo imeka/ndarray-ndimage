@@ -1,6 +1,6 @@
 use ndarray::{arr3, s, Array3};
 
-use ndarray_image::{
+use ndarray_ndimage::{
     label, label_histogram, largest_connected_components, most_frequent_label, Mask,
 };
 

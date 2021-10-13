@@ -1,7 +1,7 @@
 use approx::assert_relative_eq;
 use ndarray::{arr1, arr2, s, Array1};
 
-use ndarray_image::{gaussian_filter, median_filter, Mask};
+use ndarray_ndimage::{gaussian_filter, median_filter, Mask};
 
 #[test] // Results verified manually.
 fn test_median_filter() {

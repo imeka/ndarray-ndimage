@@ -1,7 +1,7 @@
 use approx::assert_relative_eq;
 use ndarray::{arr3, Array1, Array3};
 
-use ndarray_image::{pad, PadMode};
+use ndarray_ndimage::{pad, PadMode};
 
 fn simple_data() -> Array3<f64> {
     (0..24).map(|v| v as f64).collect::<Array1<_>>().into_shape((2, 3, 4)).unwrap()
