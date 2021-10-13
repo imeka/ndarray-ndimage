@@ -1,5 +1,5 @@
-use ndarray::{arr1, s, Array1, Array3, ArrayView3, ArrayViewMut1, Axis};
-use num_traits::{Num, ToPrimitive};
+use ndarray::{arr1, s, Array, Array1, ArrayViewMut1, Axis, Dimension};
+use num_traits::{AsPrimitive, Float, FromPrimitive};
 
 /// Multidimensional spline filter.
 ///
@@ -8,18 +8,24 @@ use num_traits::{Num, ToPrimitive};
 /// # Panics
 ///
 /// Panics if `order` isn't in the range \[2, 5\].
-pub fn spline_filter<T>(data: ArrayView3<T>, order: usize) -> Array3<f64>
+pub fn spline_filter<A, D>(data: &Array<A, D>, order: usize) -> Array<A, D>
 where
-    T: Clone + Copy + Num + ToPrimitive,
+    A: Clone + Copy + Float + FromPrimitive + 'static,
+    f64: AsPrimitive<A>,
+    D: Dimension,
 {
+    if data.len() == 1 {
+        return data.clone();
+    }
+
     let poles = get_filter_poles(order);
     let gain = filter_gain(&poles);
 
     let mut data = data.mapv(|v| v.to_f64().unwrap());
-    for axis in 0..3 {
+    for axis in 0..data.ndim() {
         _spline_filter1d(&mut data, Axis(axis), &poles, gain);
     }
-    data
+    data.mapv(|v| v.as_())
 }
 
 /// Calculate a 1-D spline filter along the given axis.
@@ -28,20 +34,29 @@ where
 ///
 /// # Panics
 ///
-/// Panics if `order` isn't in the range \[2, 5\].
-pub fn spline_filter1d<T>(data: ArrayView3<T>, order: usize, axis: Axis) -> Array3<f64>
+/// Panics if `order` isn't in the range \[0, 5\].
+pub fn spline_filter1d<A, D>(data: &Array<A, D>, order: usize, axis: Axis) -> Array<A, D>
 where
-    T: Clone + Copy + Num + ToPrimitive,
+    A: Clone + Copy + Float + FromPrimitive + 'static,
+    f64: AsPrimitive<A>,
+    D: Dimension,
 {
+    if order == 0 || order == 1 || data.len() == 1 {
+        return data.clone();
+    }
+
     let poles = get_filter_poles(order);
     let gain = filter_gain(&poles);
 
     let mut data = data.mapv(|v| v.to_f64().unwrap());
     _spline_filter1d(&mut data, axis, &poles, gain);
-    data
+    data.mapv(|v| v.as_())
 }
 
-fn _spline_filter1d(data: &mut Array3<f64>, axis: Axis, poles: &Array1<f64>, gain: f64) {
+fn _spline_filter1d<D>(data: &mut Array<f64, D>, axis: Axis, poles: &Array1<f64>, gain: f64)
+where
+    D: Dimension,
+{
     for mut line in data.lanes_mut(axis) {
         for val in line.iter_mut() {
             *val *= gain;
