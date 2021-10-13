@@ -1,6 +1,6 @@
 //! This modules defines some image padding methods for 3D images.
 
-use ndarray::{Array3, ArrayView3, ShapeBuilder};
+use ndarray::{Array3, ArrayBase, Data, Ix3, ShapeBuilder};
 use num_traits::Zero;
 
 type PadSize = (usize, usize, usize);
@@ -25,9 +25,10 @@ pub enum PadMode {
 /// * `pad_width` - Number of values padded to the edges of each axis.
 /// * `mode` - Method that will be used to select the padded values. See the
 ///   [`PadMode`](crate::PadMode) enum for more information.
-pub fn pad<T>(data: ArrayView3<T>, pad_width: PadSize, mode: PadMode) -> Array3<T>
+pub fn pad<S, A>(data: &ArrayBase<S, Ix3>, pad_width: PadSize, mode: PadMode) -> Array3<A>
 where
-    T: Zero + Clone + Copy,
+    S: Data<Elem = A>,
+    A: Zero + Clone + Copy,
 {
     let indices = |size: usize, padding: usize| match mode {
         PadMode::Reflect => reflect_indices(size, padding),
@@ -75,15 +76,16 @@ fn wrap_indices(size: usize, padding: usize) -> Vec<u16> {
     v
 }
 
-fn pad_by_indices<T>(
-    data: ArrayView3<T>,
+fn pad_by_indices<S, A>(
+    data: &ArrayBase<S, Ix3>,
     pad: PadSize,
     indices_i: Vec<u16>,
     indices_j: Vec<u16>,
     indices_k: Vec<u16>,
-) -> Array3<T>
+) -> Array3<A>
 where
-    T: Zero + Clone + Copy,
+    S: Data<Elem = A>,
+    A: Zero + Clone + Copy,
 {
     let width = data.dim().0 + 2 * pad.0;
     let height = data.dim().1 + 2 * pad.1;

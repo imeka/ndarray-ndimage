@@ -1,4 +1,4 @@
-use ndarray::{arr1, s, Array, Array1, ArrayViewMut1, Axis, Dimension};
+use ndarray::{arr1, s, Array, Array1, ArrayBase, ArrayViewMut1, Axis, Data, Dimension};
 use num_traits::{AsPrimitive, Float, FromPrimitive};
 
 /// Multidimensional spline filter.
@@ -9,14 +9,15 @@ use num_traits::{AsPrimitive, Float, FromPrimitive};
 /// * `order` - The order of the spline.
 ///
 /// **Panics** if `order` isn't in the range \[2, 5\].
-pub fn spline_filter<A, D>(data: &Array<A, D>, order: usize) -> Array<A, D>
+pub fn spline_filter<S, A, D>(data: &ArrayBase<S, D>, order: usize) -> Array<A, D>
 where
+    S: Data<Elem = A>,
     A: Clone + Copy + Float + FromPrimitive + 'static,
     f64: AsPrimitive<A>,
     D: Dimension,
 {
     if data.len() == 1 {
-        return data.clone();
+        return data.to_owned();
     }
 
     let poles = get_filter_poles(order);
@@ -38,14 +39,15 @@ where
 /// * `axis` - The axis along which the spline filter is applied.
 ///
 /// **Panics** if `order` isn't in the range \[0, 5\].
-pub fn spline_filter1d<A, D>(data: &Array<A, D>, order: usize, axis: Axis) -> Array<A, D>
+pub fn spline_filter1d<S, A, D>(data: &ArrayBase<S, D>, order: usize, axis: Axis) -> Array<A, D>
 where
+    S: Data<Elem = A>,
     A: Clone + Copy + Float + FromPrimitive + 'static,
     f64: AsPrimitive<A>,
     D: Dimension,
 {
     if order == 0 || order == 1 || data.len() == 1 {
-        return data.clone();
+        return data.to_owned();
     }
 
     let poles = get_filter_poles(order);

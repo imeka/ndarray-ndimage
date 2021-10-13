@@ -12,7 +12,7 @@ fn test_binary_erosion() {
 
     mask[(0, 2, 2)] = false;
     gt[(1, 2, 2)] = false;
-    assert_eq!(binary_erosion(&mask, Kernel3d::Star), gt);
+    assert_eq!(binary_erosion(&mask.view(), Kernel3d::Star), gt);
 }
 
 #[test] // Results verified with the `binary_erosion` function from SciPy. (v1.7.0)
@@ -77,7 +77,7 @@ fn test_binary_dilation_plain() {
     gt.slice_mut(s![2..w - 1, 2..h - 1, 1..d]).fill(true);
     gt.slice_mut(s![2..w - 1, h - 1, 2..d - 1]).fill(true);
 
-    assert_eq!(gt, binary_dilation(&mask, Kernel3d::Star));
+    assert_eq!(gt, binary_dilation(&mask.view(), Kernel3d::Star));
 }
 
 #[test] // Results verified with the `binary_dilation` function from SciPy. (v1.7.0)

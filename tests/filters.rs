@@ -29,7 +29,7 @@ fn test_median_filter() {
 
     gt[(2, 0, 0)] = true;
     mask[(1, 1, 1)] = true;
-    assert_eq!(median_filter(&mask), gt);
+    assert_eq!(median_filter(&mask.view()), gt);
 }
 
 #[test]
@@ -42,7 +42,7 @@ fn test_gaussian_filter_1d() {
     );
     a[0] = 0.7;
     assert_relative_eq!(
-        gaussian_filter(&a, 2.0, 3.0),
+        gaussian_filter(&a.view(), 2.0, 3.0),
         arr1(&[1.4193099, 1.737984, 2.3200142, 3.0642939, 3.8351974, 4.4778357, 4.845365]),
         epsilon = 1e-5
     );
