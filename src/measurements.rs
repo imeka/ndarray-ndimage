@@ -5,7 +5,10 @@ use crate::Mask;
 const BACKGROUND: u16 = 0;
 const FOREGROUND: u16 = 1;
 
-/// Calculates the histogram of a label image
+/// Calculates the histogram of a label image.
+///
+/// * `labels` - `u16` 3D labels image, returned by the `label` function.
+/// * `nb_features` - Number of unique labels, returned by the `label` function.
 pub fn label_histogram(labels: &Array3<u16>, nb_features: usize) -> Vec<usize> {
     let mut count = vec![0; nb_features + 1];
     Zip::from(labels).for_each(|&l| {
@@ -17,6 +20,9 @@ pub fn label_histogram(labels: &Array3<u16>, nb_features: usize) -> Vec<usize> {
 /// Returns the most frequent label and its index.
 ///
 /// Ignores the background label. A blank label image will return None.
+///
+/// * `labels` - `u16` 3D labels image, returned by the `label` function.
+/// * `nb_features` - Number of unique labels, returned by the `label` function.
 pub fn most_frequent_label(labels: &Array3<u16>, nb_features: usize) -> Option<(u16, usize)> {
     let hist = label_histogram(labels, nb_features);
     let (max, max_index) =
@@ -24,7 +30,9 @@ pub fn most_frequent_label(labels: &Array3<u16>, nb_features: usize) -> Option<(
     (max > 0).then(|| ((max_index + 1) as u16, max))
 }
 
-/// Returns the bigest zone of `mask` in a new mask.
+/// Returns a new mask, containing the biggest zone of `mask`.
+///
+/// * `mask` - Binary image to be labeled and studied.
 pub fn largest_connected_components(mask: &Mask) -> Option<Mask> {
     let (labels, nb_features) = label(mask);
     let (right_label, _) = most_frequent_label(&labels, nb_features)?;
@@ -33,9 +41,11 @@ pub fn largest_connected_components(mask: &Mask) -> Option<Mask> {
 
 /// Labels features of 3D binary images.
 ///
-/// Currently support only the Star kernel (`Kernel3d::Star`).
+/// Currently hardcoded with the Star kernel (`Kernel3d::Star`).
 ///
 /// Returns the labels and the number of features.
+///
+/// * `mask` - Binary image to be labeled. `false` values are considered the background.
 pub fn label(data: &Mask) -> (Array3<u16>, usize) {
     let len = data.dim().2;
     let mut line_buffer = vec![BACKGROUND; len + 2];

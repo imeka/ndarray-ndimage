@@ -5,9 +5,10 @@ use num_traits::{AsPrimitive, Float, FromPrimitive};
 ///
 /// The multidimensional filter is implemented as a sequence of one-dimensional spline filters.
 ///
-/// # Panics
+/// * `data` - The input N-D data.
+/// * `order` - The order of the spline.
 ///
-/// Panics if `order` isn't in the range \[2, 5\].
+/// **Panics** if `order` isn't in the range \[2, 5\].
 pub fn spline_filter<A, D>(data: &Array<A, D>, order: usize) -> Array<A, D>
 where
     A: Clone + Copy + Float + FromPrimitive + 'static,
@@ -32,9 +33,11 @@ where
 ///
 /// The lines of the array along the given axis are filtered by a spline filter.
 ///
-/// # Panics
+/// * `data` - The input N-D data.
+/// * `order` - The order of the spline.
+/// * `axis` - The axis along which the spline filter is applied.
 ///
-/// Panics if `order` isn't in the range \[0, 5\].
+/// **Panics** if `order` isn't in the range \[0, 5\].
 pub fn spline_filter1d<A, D>(data: &Array<A, D>, order: usize, axis: Axis) -> Array<A, D>
 where
     A: Clone + Copy + Float + FromPrimitive + 'static,

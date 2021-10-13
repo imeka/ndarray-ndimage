@@ -2,7 +2,10 @@ use ndarray::{s, Zip};
 
 use crate::{array_like, dim_minus_1, Kernel3d, Mask};
 
-/// Binary erosion of a 3D image.
+/// Binary erosion of a 3D binary image.
+///
+/// * `mask` - Binary image to be eroded.
+/// * `kernel` - Structuring element used for the erosion.
 pub fn binary_erosion(mask: &Mask, kernel: Kernel3d) -> Mask {
     // By definition, all borders are set to 0
     let mut eroded_mask = mask.clone();
@@ -37,7 +40,10 @@ pub fn binary_erosion(mask: &Mask, kernel: Kernel3d) -> Mask {
     eroded_mask
 }
 
-/// Binary dilation of a 3D binary image. We assume that kernels are cubic volume.
+/// Binary dilation of a 3D binary image.
+///
+/// * `mask` - Binary image to be dilated.
+/// * `kernel` - Structuring element used for the dilation.
 pub fn binary_dilation(mask: &Mask, kernel: Kernel3d) -> Mask {
     let (width, height, depth) = mask.dim();
     let crop = s![1..=width, 1..=height, 1..=depth];

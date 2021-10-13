@@ -4,7 +4,7 @@ ndarray-image
 This crate provides multidimensional image processing for [`ndarray`]'s `ArrayBase` type.
 
 It aims to:
-- be a Rust replacement for [`scipy.ndimage`] with some other tools like [`numpy.pad`] and anything else relevant to image processing.
+- be a Rust replacement for [`scipy.ndimage`] with some other tools like [`numpy.pad`] and anything else relevant to image processing. We do not want all options offered by scipy.
 - be faster or as fast as `scipy.ndimage`. Most of it is cythonized so it's not easy as it seems.
 - avoid using `unsafe`. This is not a unbreakable rule. Its usage will be evaluated and dicussed in the pull requests.
 
@@ -12,7 +12,7 @@ Currently available routines include:
 - Filters: gaussian_filter, gaussian_filter1d, median_filter
 - Fourier filters: none
 - Interpolation: spline_filter, spline_filter1d
-- Measurements: label
+- Measurements: label, label_histogram, largest_connected_components, most_frequent_label
 - Morphology: binary_dilation, binary_erosion
 - Padding: reflect, symmetric and wrap
 
