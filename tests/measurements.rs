@@ -172,7 +172,7 @@ fn test_label_5() {
             [3, 0, 0, 0, 0],
         ],
     ]);
-    let (labels, nb_features) = label(&data.mapv(|v| v >= 0.7));
+    let (labels, nb_features) = label(&data.mapv(|v| v >= 0.7).view());
     assert_eq!(labels, gt);
     assert_eq!(nb_features, 3);
     assert_eq!(label_histogram(&gt, nb_features), vec![113, 33, 2, 2]);
@@ -197,5 +197,5 @@ fn test_largest_connected_components() {
     gt.slice_mut(s![2..4, 2..4, 2..4]).fill(true);
     gt[(3, 3, 4)] = true;
     gt[(3, 4, 4)] = true;
-    assert_eq!(largest_connected_components(&mask).unwrap(), gt);
+    assert_eq!(largest_connected_components(&mask.view()).unwrap(), gt);
 }

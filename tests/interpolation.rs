@@ -51,7 +51,7 @@ fn test_spline_filter_1d() {
 
     let data = arr1(&[0.3, 0.2, 0.5, -0.1, 0.4]);
     assert_relative_eq!(
-        spline_filter(&data, 3),
+        spline_filter(&data.view(), 3),
         arr1(&[0.47321429, -0.04642857, 0.9125, -0.60357143, 0.90178571]),
         epsilon = 1e-5
     );
@@ -161,7 +161,7 @@ fn test_spline_filter_3d() {
 fn test_spline_filter1d() {
     let data = arr2(&[[0.5, 0.4], [0.3, 0.4]]);
     assert_relative_eq!(
-        spline_filter1d(&data, 2, Axis(0)),
+        spline_filter1d(&data.view(), 2, Axis(0)),
         arr2(&[[0.6, 0.4], [0.2, 0.4]]),
         epsilon = 1e-5
     );

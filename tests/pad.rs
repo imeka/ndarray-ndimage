@@ -11,7 +11,7 @@ fn simple_data() -> Array3<f64> {
 fn test_pad_symmetric() {
     let data = simple_data();
     assert_relative_eq!(
-        pad(data.view(), (1, 1, 1), PadMode::Symmetric),
+        pad(&data, (1, 1, 1), PadMode::Symmetric),
         arr3(&[
             [
                 [0.0, 0.0, 1.0, 2.0, 3.0, 3.0],
@@ -44,7 +44,7 @@ fn test_pad_symmetric() {
         ])
     );
     assert_relative_eq!(
-        pad(data.view(), (0, 1, 2), PadMode::Symmetric),
+        pad(&data, (0, 1, 2), PadMode::Symmetric),
         arr3(&[
             [
                 [1.0, 0.0, 0.0, 1.0, 2.0, 3.0, 3.0, 2.0],
@@ -68,7 +68,7 @@ fn test_pad_symmetric() {
 fn test_pad_wrap() {
     let data = simple_data();
     assert_relative_eq!(
-        pad(data.view(), (1, 1, 1), PadMode::Wrap),
+        pad(&data, (1, 1, 1), PadMode::Wrap),
         arr3(&[
             [
                 [23.0, 20.0, 21.0, 22.0, 23.0, 20.0],
@@ -101,7 +101,7 @@ fn test_pad_wrap() {
         ])
     );
     assert_relative_eq!(
-        pad(data.view(), (0, 1, 2), PadMode::Wrap),
+        pad(&data, (0, 1, 2), PadMode::Wrap),
         arr3(&[
             [
                 [10.0, 11.0, 8.0, 9.0, 10.0, 11.0, 8.0, 9.0],
@@ -125,7 +125,7 @@ fn test_pad_wrap() {
 fn test_pad_reflect() {
     let data = simple_data();
     assert_relative_eq!(
-        pad(data.view(), (1, 1, 1), PadMode::Reflect),
+        pad(&data, (1, 1, 1), PadMode::Reflect),
         arr3(&[
             [
                 [17.0, 16.0, 17.0, 18.0, 19.0, 18.0],
@@ -158,7 +158,7 @@ fn test_pad_reflect() {
         ])
     );
     assert_relative_eq!(
-        pad(data.view(), (0, 1, 2), PadMode::Reflect),
+        pad(&data.view(), (0, 1, 2), PadMode::Reflect),
         arr3(&[
             [
                 [6.0, 5.0, 4.0, 5.0, 6.0, 7.0, 6.0, 5.0],

@@ -1,4 +1,4 @@
-use ndarray::{s, Array, Axis, Dimension, Zip};
+use ndarray::{s, Array, ArrayBase, Axis, Data, Dimension, Ix3, Zip};
 use num_traits::{Float, ToPrimitive};
 
 use crate::{array_like, dim_minus_1, Mask};
@@ -7,7 +7,10 @@ use crate::{array_like, dim_minus_1, Mask};
 ///
 /// A 3x3 structuring element (`Kernel3d::Full`) is used except on the borders, where a smaller
 /// structuring element is used.
-pub fn median_filter(mask: &Mask) -> Mask {
+pub fn median_filter<S>(mask: &ArrayBase<S, Ix3>) -> Mask
+where
+    S: Data<Elem = bool>,
+{
     let range = |i, max| {
         if i == 0 {
             0..2
@@ -50,8 +53,9 @@ pub fn median_filter(mask: &Mask) -> Mask {
 /// * `truncate` - Truncate the filter at this many standard deviations.
 ///
 /// **Panics** if one of the axis' lengths is lower than `truncate * sigma + 0.5`.
-pub fn gaussian_filter<A, D>(data: &Array<A, D>, sigma: A, truncate: A) -> Array<A, D>
+pub fn gaussian_filter<S, A, D>(data: &ArrayBase<S, D>, sigma: A, truncate: A) -> Array<A, D>
 where
+    S: Data<Elem = A>,
     A: Float + ToPrimitive,
     D: Dimension,
 {
@@ -59,8 +63,8 @@ where
     // * We're reading neignbors so we can't read and write on the same location.
     // * The process is applied for each axis on the result of the previous process.
     // * It's uglier (using &mut) but much faster than allocating for each axis.
-    let mut data = data.clone();
-    let mut output = data.clone();
+    let mut data = data.to_owned();
+    let mut output = data.to_owned();
 
     let weights = weights(sigma, truncate);
     for d in 0..data.ndim() {
@@ -80,8 +84,14 @@ where
 /// * `axis` - The axis of input along which to calculate.
 ///
 /// **Panics** if the axis length is lower than `truncate * sigma + 0.5`.
-pub fn gaussian_filter1d<A, D>(data: &Array<A, D>, sigma: A, truncate: A, axis: Axis) -> Array<A, D>
+pub fn gaussian_filter1d<S, A, D>(
+    data: &ArrayBase<S, D>,
+    sigma: A,
+    truncate: A,
+    axis: Axis,
+) -> Array<A, D>
 where
+    S: Data<Elem = A>,
     A: Float + ToPrimitive,
     D: Dimension,
 {
@@ -91,8 +101,13 @@ where
     output
 }
 
-fn _gaussian_filter1d<A, D>(data: &Array<A, D>, weights: &[A], axis: Axis, output: &mut Array<A, D>)
-where
+fn _gaussian_filter1d<S, A, D>(
+    data: &ArrayBase<S, D>,
+    weights: &[A],
+    axis: Axis,
+    output: &mut Array<A, D>,
+) where
+    S: Data<Elem = A>,
     A: Float + ToPrimitive,
     D: Dimension,
 {

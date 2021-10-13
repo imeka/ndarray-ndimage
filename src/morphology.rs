@@ -1,4 +1,4 @@
-use ndarray::{s, Zip};
+use ndarray::{s, ArrayBase, Data, Ix3, Zip};
 
 use crate::{array_like, dim_minus_1, Kernel3d, Mask};
 
@@ -6,9 +6,12 @@ use crate::{array_like, dim_minus_1, Kernel3d, Mask};
 ///
 /// * `mask` - Binary image to be eroded.
 /// * `kernel` - Structuring element used for the erosion.
-pub fn binary_erosion(mask: &Mask, kernel: Kernel3d) -> Mask {
+pub fn binary_erosion<S>(mask: &ArrayBase<S, Ix3>, kernel: Kernel3d) -> Mask
+where
+    S: Data<Elem = bool>,
+{
     // By definition, all borders are set to 0
-    let mut eroded_mask = mask.clone();
+    let mut eroded_mask = mask.to_owned();
     let (width, height, depth) = dim_minus_1(mask);
     eroded_mask.slice_mut(s![0, .., ..]).fill(false);
     eroded_mask.slice_mut(s![width, .., ..]).fill(false);
@@ -44,7 +47,10 @@ pub fn binary_erosion(mask: &Mask, kernel: Kernel3d) -> Mask {
 ///
 /// * `mask` - Binary image to be dilated.
 /// * `kernel` - Structuring element used for the dilation.
-pub fn binary_dilation(mask: &Mask, kernel: Kernel3d) -> Mask {
+pub fn binary_dilation<S>(mask: &ArrayBase<S, Ix3>, kernel: Kernel3d) -> Mask
+where
+    S: Data<Elem = bool>,
+{
     let (width, height, depth) = mask.dim();
     let crop = s![1..=width, 1..=height, 1..=depth];
     let mut new_mask = array_like(mask, (width + 2, height + 2, depth + 2), false);

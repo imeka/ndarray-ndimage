@@ -1,4 +1,4 @@
-use ndarray::{s, Array3, Axis, Zip};
+use ndarray::{s, Array3, ArrayBase, Axis, Data, Ix3, Zip};
 
 use crate::Mask;
 
@@ -9,7 +9,10 @@ const FOREGROUND: u16 = 1;
 ///
 /// * `labels` - `u16` 3D labels image, returned by the `label` function.
 /// * `nb_features` - Number of unique labels, returned by the `label` function.
-pub fn label_histogram(labels: &Array3<u16>, nb_features: usize) -> Vec<usize> {
+pub fn label_histogram<S>(labels: &ArrayBase<S, Ix3>, nb_features: usize) -> Vec<usize>
+where
+    S: Data<Elem = u16>,
+{
     let mut count = vec![0; nb_features + 1];
     Zip::from(labels).for_each(|&l| {
         count[l as usize] += 1;
@@ -23,7 +26,13 @@ pub fn label_histogram(labels: &Array3<u16>, nb_features: usize) -> Vec<usize> {
 ///
 /// * `labels` - `u16` 3D labels image, returned by the `label` function.
 /// * `nb_features` - Number of unique labels, returned by the `label` function.
-pub fn most_frequent_label(labels: &Array3<u16>, nb_features: usize) -> Option<(u16, usize)> {
+pub fn most_frequent_label<S>(
+    labels: &ArrayBase<S, Ix3>,
+    nb_features: usize,
+) -> Option<(u16, usize)>
+where
+    S: Data<Elem = u16>,
+{
     let hist = label_histogram(labels, nb_features);
     let (max, max_index) =
         hist[1..].iter().enumerate().fold((0, 0), |acc, (i, &nb)| acc.max((nb, i)));
@@ -33,7 +42,10 @@ pub fn most_frequent_label(labels: &Array3<u16>, nb_features: usize) -> Option<(
 /// Returns a new mask, containing the biggest zone of `mask`.
 ///
 /// * `mask` - Binary image to be labeled and studied.
-pub fn largest_connected_components(mask: &Mask) -> Option<Mask> {
+pub fn largest_connected_components<S>(mask: &ArrayBase<S, Ix3>) -> Option<Mask>
+where
+    S: Data<Elem = bool>,
+{
     let (labels, nb_features) = label(mask);
     let (right_label, _) = most_frequent_label(&labels, nb_features)?;
     Some(labels.mapv(|l| l == right_label))
@@ -46,7 +58,10 @@ pub fn largest_connected_components(mask: &Mask) -> Option<Mask> {
 /// Returns the labels and the number of features.
 ///
 /// * `mask` - Binary image to be labeled. `false` values are considered the background.
-pub fn label(data: &Mask) -> (Array3<u16>, usize) {
+pub fn label<S>(data: &ArrayBase<S, Ix3>) -> (Array3<u16>, usize)
+where
+    S: Data<Elem = bool>,
+{
     let len = data.dim().2;
     let mut line_buffer = vec![BACKGROUND; len + 2];
     let mut neighbors = vec![BACKGROUND; len + 2];
