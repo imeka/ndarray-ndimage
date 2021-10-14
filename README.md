@@ -1,4 +1,4 @@
-ndarray-image
+ndarray-ndimage
 =============
 
 This crate provides multidimensional image processing for [`ndarray`]'s `ArrayBase` type.
@@ -28,13 +28,13 @@ Using with Cargo
 ```toml
 [dependencies]
 ndarray = "0.15"
-ndarray-image = "0.1"
+ndarray-ndimage = "0.1"
 ```
 
 Contributing
 ============
 
-`ndarray-image` needs your help to grow. Please feel free to create issues and submit PRs. Since it is based on `scipy.ndimage`, it is easy to port new functions and tests.
+`ndarray-ndimage` needs your help to grow. Please feel free to create issues and submit PRs. Since it is based on `scipy.ndimage`, it is easy to port new functions and tests.
 
 License
 =======

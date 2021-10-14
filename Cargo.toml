@@ -1,10 +1,10 @@
 [package]
 name = "ndarray-ndimage"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Nil Goyette <nil.goyette@imeka.ca>"]
 edition = "2018"
 
-repository = "https://github.com/imeka/ndarray-image"
+repository = "https://github.com/imeka/ndarray-ndimage"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 
