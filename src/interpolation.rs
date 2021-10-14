@@ -1,9 +1,10 @@
 use ndarray::{arr1, s, Array, Array1, ArrayBase, ArrayViewMut1, Axis, Data, Dimension};
-use num_traits::{AsPrimitive, Float, FromPrimitive};
+use num_traits::{AsPrimitive, Num, ToPrimitive};
 
 /// Multidimensional spline filter.
 ///
-/// The multidimensional filter is implemented as a sequence of one-dimensional spline filters.
+/// The multidimensional filter is implemented as a sequence of one-dimensional spline filters. The
+/// input `data` will be processed in `f64` and converted back to the original datatype.
 ///
 /// * `data` - The input N-D data.
 /// * `order` - The order of the spline.
@@ -12,7 +13,7 @@ use num_traits::{AsPrimitive, Float, FromPrimitive};
 pub fn spline_filter<S, A, D>(data: &ArrayBase<S, D>, order: usize) -> Array<A, D>
 where
     S: Data<Elem = A>,
-    A: Clone + Copy + Float + FromPrimitive + 'static,
+    A: 'static + Clone + Copy + Num + ToPrimitive,
     f64: AsPrimitive<A>,
     D: Dimension,
 {
@@ -32,7 +33,8 @@ where
 
 /// Calculate a 1-D spline filter along the given axis.
 ///
-/// The lines of the array along the given axis are filtered by a spline filter.
+/// The lines of the array along the given axis are filtered by a spline filter. The input `data`
+/// will be processed in `f64` and converted back to the original datatype.
 ///
 /// * `data` - The input N-D data.
 /// * `order` - The order of the spline.
@@ -42,7 +44,7 @@ where
 pub fn spline_filter1d<S, A, D>(data: &ArrayBase<S, D>, order: usize, axis: Axis) -> Array<A, D>
 where
     S: Data<Elem = A>,
-    A: Clone + Copy + Float + FromPrimitive + 'static,
+    A: 'static + Clone + Copy + Num + ToPrimitive,
     f64: AsPrimitive<A>,
     D: Dimension,
 {
