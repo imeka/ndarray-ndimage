@@ -10,7 +10,7 @@ It aims to:
 
 Currently available routines include:
 - Filters: gaussian_filter, gaussian_filter1d, median_filter
-- Fourier filters: none
+- Fourier filters: none. Please use the excellent [`rustfft`] crate
 - Interpolation: spline_filter, spline_filter1d
 - Measurements: label, label_histogram, largest_connected_components, most_frequent_label
 - Morphology: binary_dilation, binary_erosion
@@ -21,6 +21,7 @@ Currently available routines include:
 [`ndarray`]: https://github.com/rust-ndarray/ndarray
 [`scipy.ndimage`]: https://docs.scipy.org/doc/scipy/reference/ndimage.html
 [`numpy.pad`]: https://numpy.org/doc/stable/reference/generated/numpy.pad.html
+[`rustfft`]: https://crates.io/crates/rustfft
 
 Using with Cargo
 ================
