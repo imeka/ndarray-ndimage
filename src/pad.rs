@@ -1,7 +1,8 @@
 //! This modules defines some image padding methods for 3D images.
 
 use ndarray::{
-    s, Array, ArrayBase, ArrayView1, Axis, Data, Dimension, NdIndex, ShapeBuilder, Slice, Zip,
+    s, Array, Array1, ArrayBase, ArrayView1, Axis, Data, Dimension, NdIndex, ShapeBuilder, Slice,
+    Zip,
 };
 use ndarray_stats::QuantileExt;
 use num_traits::{FromPrimitive, Num, Zero};
@@ -46,7 +47,7 @@ pub enum PadMode<T> {
     Wrap,
 }
 
-impl<T> PadMode<T> {
+impl<T: PartialEq> PadMode<T> {
     fn init(&self) -> T
     where
         T: Copy + Zero,
@@ -67,7 +68,7 @@ impl<T> PadMode<T> {
         }
     }
 
-    fn dynamic_value(&self, lane: ArrayView1<T>) -> T
+    fn dynamic_value(&self, lane: ArrayView1<T>, buffer: &mut Array1<T>) -> T
     where
         T: Clone + Copy + FromPrimitive + Num + PartialOrd,
     {
@@ -75,7 +76,7 @@ impl<T> PadMode<T> {
             PadMode::Minimum => *lane.min().unwrap(),
             PadMode::Mean => lane.mean().unwrap(),
             PadMode::Median => {
-                let mut buffer = lane.to_owned();
+                buffer.assign(&lane);
                 buffer.as_slice_mut().unwrap().sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
                 let n = buffer.len();
                 let h = (n - 1) / 2;
@@ -89,6 +90,10 @@ impl<T> PadMode<T> {
             PadMode::Maximum => *lane.max().unwrap(),
             _ => panic!(""),
         }
+    }
+
+    fn needs_buffer(&self) -> bool {
+        *self == PadMode::Median
     }
 
     fn indices(&self, size: usize, padding: usize) -> Vec<u16> {
@@ -167,8 +172,10 @@ where
             for d in 0..data.ndim() {
                 let start = pad[d];
                 let end = start + data.shape()[d];
+                let mut buffer =
+                    if mode.needs_buffer() { Array1::zeros(end - start) } else { Array1::zeros(0) };
                 Zip::from(padded.lanes_mut(Axis(d))).for_each(|mut lane| {
-                    let v = mode.dynamic_value(lane.slice(s![start..end]));
+                    let v = mode.dynamic_value(lane.slice(s![start..end]), &mut buffer);
                     lane.slice_mut(s![..start]).fill(v);
                     lane.slice_mut(s![end..]).fill(v);
                 });
