@@ -15,7 +15,7 @@ fn simple_data_3d() -> Array3<f64> {
     (0..24).map(|v| v as f64).collect::<Array1<_>>().into_shape((2, 3, 4)).unwrap()
 }
 
-#[test] // Results verified with the `pad(mode='maximum')` function from NumPy. (v1.21.1)
+#[test] // Results verified with the `pad(mode='maximum')` function from NumPy. (v1.21.4)
 fn test_pad_minmax() {
     let data = simple_data_1d();
     assert_eq!(pad(&data, 2, PadMode::Maximum), arr1(&[3, 3, 0, 1, 2, 3, 3, 3]));
@@ -84,7 +84,7 @@ fn test_pad_minmax() {
     );
 }
 
-#[test] // Results verified with the `pad(mode='mean')` function from NumPy. (v1.21.1)
+#[test] // Results verified with the `pad(mode='mean')` function from NumPy. (v1.21.4)
 fn test_pad_mean() {
     let data = simple_data_1d();
     assert_eq!(pad(&data, 2, PadMode::Mean), arr1(&[1, 1, 0, 1, 2, 3, 1, 1]));
@@ -124,7 +124,7 @@ fn test_pad_mean() {
     );
 }
 
-#[test] // Results verified with the `pad(mode='median')` function from NumPy. (v1.21.1)
+#[test] // Results verified with the `pad(mode='median')` function from NumPy. (v1.21.4)
 fn test_pad_median() {
     let data = simple_data_1d();
     assert_eq!(pad(&data, 2, PadMode::Median), arr1(&[1, 1, 0, 1, 2, 3, 1, 1]));
@@ -164,7 +164,7 @@ fn test_pad_median() {
     );
 }
 
-#[test] // Results verified with the `pad(mode='reflect')` function from NumPy. (v1.21.1)
+#[test] // Results verified with the `pad(mode='reflect')` function from NumPy. (v1.21.4)
 fn test_pad_reflect() {
     let data = simple_data_1d();
     assert_eq!(pad(&data, 1, PadMode::Reflect), arr1(&[1, 0, 1, 2, 3, 2]));
@@ -247,7 +247,7 @@ fn test_pad_reflect() {
     );
 }
 
-#[test] // Results verified with the `pad(mode='symmetric')` function from NumPy. (v1.21.1)
+#[test] // Results verified with the `pad(mode='symmetric')` function from NumPy. (v1.21.4)
 fn test_pad_symmetric() {
     let data = simple_data_1d();
     assert_eq!(pad(&data, 1, PadMode::Symmetric), arr1(&[0, 0, 1, 2, 3, 3]));
@@ -330,7 +330,7 @@ fn test_pad_symmetric() {
     );
 }
 
-#[test] // Results verified with the `pad(mode='wrap')` function from NumPy. (v1.21.1)
+#[test] // Results verified with the `pad(mode='wrap')` function from NumPy. (v1.21.4)
 fn test_pad_wrap() {
     let data = simple_data_1d();
     assert_eq!(pad(&data, 1, PadMode::Wrap), arr1(&[3, 0, 1, 2, 3, 0]));
@@ -413,7 +413,7 @@ fn test_pad_wrap() {
     );
 }
 
-#[test] // Results verified with the `pad(mode='median')` function from NumPy. (v1.21.1)
+#[test] // Results verified with the `pad(mode='median')` function from NumPy. (v1.21.4)
 fn test_pad_edge() {
     let data = simple_data_1d();
     assert_eq!(pad(&data, 2, PadMode::Edge), arr1(&[0, 0, 0, 1, 2, 3, 3, 3]));
