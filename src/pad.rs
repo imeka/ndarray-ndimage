@@ -17,16 +17,29 @@ pub enum PadMode<T> {
     /// `[1, 2, 3] -> [T, T, 1, 2, 3, T, T]`
     Constant(T),
 
+    /// Pads with the edge values of array.
+    ///
+    /// `[1, 2, 3] -> [1, 1, 1, 2, 3, 3, 3]`
+    Edge,
+
     /// Pads with the maximum value of all or part of the vector along each axis.
+    ///
+    /// `[1, 2, 3] -> [3, 3, 1, 2, 3, 3, 3]`
     Maximum,
 
     /// Pads with the mean value of all or part of the vector along each axis.
+    ///
+    /// `[1, 2, 3] -> [2, 2, 1, 2, 3, 2, 2]`
     Mean,
 
     /// Pads with the median value of all or part of the vector along each axis.
+    ///
+    /// `[1, 2, 3] -> [2, 2, 1, 2, 3, 2, 2]`
     Median,
 
     /// Pads with the minimum value of all or part of the vector along each axis.
+    ///
+    /// `[1, 2, 3] -> [1, 1, 1, 2, 3, 1, 1]`
     Minimum,
 
     /// Pads with the reflection of the vector mirrored on the first and last values of the vector
@@ -65,6 +78,7 @@ impl<T: PartialEq> PadMode<T> {
                 PadAction::ByLane
             }
             PadMode::Reflect | PadMode::Symmetric | PadMode::Wrap => PadAction::ByIndices,
+            PadMode::Edge => PadAction::BySides,
         }
     }
 
@@ -88,7 +102,7 @@ impl<T: PartialEq> PadMode<T> {
                 dadc
             }
             PadMode::Maximum => *lane.max().unwrap(),
-            _ => panic!(""),
+            _ => panic!("Only Minimum, Median and Maximum have a dynamic value"),
         }
     }
 
@@ -135,6 +149,7 @@ enum PadAction {
     StopAfterCopy,
     ByLane,
     ByIndices,
+    BySides,
 }
 
 /// Pad an image.
@@ -167,7 +182,18 @@ where
     }
 
     match action {
-        PadAction::StopAfterCopy => padded,
+        PadAction::StopAfterCopy => { /* Nothing */ }
+        PadAction::ByIndices => {
+            let indices: Vec<_> =
+                (0..data.ndim()).map(|d| mode.indices(data.len_of(Axis(d)), pad[d])).collect();
+            Zip::indexed(&mut padded).for_each(|idx, v| {
+                let mut idx = idx.into_shape().raw_dim().clone();
+                for d in 0..data.ndim() {
+                    idx[d] = indices[d][idx[d]] as usize;
+                }
+                *v = data[idx.into_pattern()];
+            });
+        }
         PadAction::ByLane => {
             for d in 0..data.ndim() {
                 let start = pad[d];
@@ -180,19 +206,19 @@ where
                     lane.slice_mut(s![end..]).fill(v);
                 });
             }
-            padded
         }
-        PadAction::ByIndices => {
-            let indices: Vec<_> =
-                (0..data.ndim()).map(|d| mode.indices(data.len_of(Axis(d)), pad[d])).collect();
-            Zip::indexed(&mut padded).for_each(|idx, v| {
-                let mut idx = idx.into_shape().raw_dim().clone();
-                for d in 0..data.ndim() {
-                    idx[d] = indices[d][idx[d]] as usize;
-                }
-                *v = data[idx.into_pattern()];
-            });
-            padded
+        PadAction::BySides => {
+            for d in 0..data.ndim() {
+                let start = pad[d];
+                let end = start + data.shape()[d];
+                Zip::from(padded.lanes_mut(Axis(d))).for_each(|mut lane| {
+                    let left = lane[start];
+                    let right = lane[end - 1];
+                    lane.slice_mut(s![..start]).fill(left);
+                    lane.slice_mut(s![end..]).fill(right);
+                });
+            }
         }
     }
+    padded
 }
