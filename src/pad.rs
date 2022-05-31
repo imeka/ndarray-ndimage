@@ -110,34 +110,20 @@ impl<T: PartialEq> PadMode<T> {
         *self == PadMode::Median
     }
 
-    fn indices(&self, size: usize, padding: usize) -> Vec<u16> {
+    fn indices(&self, size: usize, pad: usize) -> (Vec<u16>, Vec<u16>) {
+        let size = size as u16;
+        let pad = pad as u16;
         match self {
-            PadMode::Reflect => {
-                let mut v = Vec::with_capacity(2 * padding + size);
-                let size = size as u16;
-                let padding = padding as u16;
-                v.extend((1..=padding).rev());
-                v.extend(0..size);
-                v.extend((size - padding - 1..size - 1).rev());
-                v
-            }
-            PadMode::Symmetric => {
-                let mut v = Vec::with_capacity(2 * padding + size);
-                let size = size as u16;
-                let padding = padding as u16;
-                v.extend((0..padding).rev());
-                v.extend(0..size);
-                v.extend((size - padding..size).rev());
-                v
-            }
+            PadMode::Reflect => (
+                (1..=pad).rev().map(|i| i + pad).collect(),
+                (size - pad - 1..size - 1).rev().map(|i| i + pad).collect(),
+            ),
+            PadMode::Symmetric => (
+                (0..pad).rev().map(|i| i + pad).collect(),
+                (size - pad..size).rev().map(|i| i + pad).collect(),
+            ),
             PadMode::Wrap => {
-                let mut v = Vec::with_capacity(2 * padding + size);
-                let size = size as u16;
-                let padding = padding as u16;
-                v.extend(size - padding..size);
-                v.extend(0..size);
-                v.extend(0..padding);
-                v
+                ((size - pad..size).map(|i| i + pad).collect(), (0..pad).map(|i| i + pad).collect())
             }
             _ => panic!("Only Reflect, Symmetric and Wrap have indices"),
         }
@@ -161,7 +147,7 @@ enum PadAction {
 pub fn pad<S, A, D, Sh>(data: &ArrayBase<S, D>, pad: Sh, mode: PadMode<A>) -> Array<A, D>
 where
     S: Data<Elem = A>,
-    A: Clone + Copy + FromPrimitive + Num + PartialOrd,
+    A: Clone + Copy + FromPrimitive + Num + PartialOrd + std::fmt::Display,
     D: Dimension + Copy,
     Sh: ShapeBuilder<Dim = D>,
     <D as Dimension>::Pattern: NdIndex<D>,
@@ -171,28 +157,31 @@ where
     let mut padded = array_like(&data, new_dim, mode.init());
     let padded_dim = padded.raw_dim();
 
-    let action = mode.action();
-    if action != PadAction::ByIndices {
-        // Select portion of padded array that needs to be copied from the original array.
-        let mut orig_portion = padded.view_mut();
-        for d in 0..data.ndim() {
-            orig_portion.slice_axis_inplace(Axis(d), Slice::from(pad[d]..padded_dim[d] - pad[d]));
-        }
-        orig_portion.assign(data);
+    // Select portion of padded array that needs to be copied from the original array.
+    let mut orig_portion = padded.view_mut();
+    for d in 0..data.ndim() {
+        orig_portion.slice_axis_inplace(Axis(d), Slice::from(pad[d]..padded_dim[d] - pad[d]));
     }
+    orig_portion.assign(data);
 
-    match action {
+    match mode.action() {
         PadAction::StopAfterCopy => { /* Nothing */ }
         PadAction::ByIndices => {
-            let indices: Vec<_> =
-                (0..data.ndim()).map(|d| mode.indices(data.len_of(Axis(d)), pad[d])).collect();
-            Zip::indexed(&mut padded).for_each(|idx, v| {
-                let mut idx = idx.into_shape().raw_dim().clone();
-                for d in 0..data.ndim() {
-                    idx[d] = indices[d][idx[d]] as usize;
-                }
-                *v = data[idx.into_pattern()];
-            });
+            for d in 0..data.ndim() {
+                let start = pad[d];
+                let end = start + data.shape()[d];
+                let (left_indices, right_indices) = mode.indices(data.shape()[d], pad[d]);
+                let mut buffer = Array1::zeros(padded.shape()[d]);
+                Zip::from(padded.lanes_mut(Axis(d))).for_each(|mut lane| {
+                    buffer.assign(&lane);
+                    Zip::from(lane.slice_mut(s![..start])).and(&left_indices).for_each(|e, &i| {
+                        *e = buffer[i as usize];
+                    });
+                    Zip::from(lane.slice_mut(s![end..])).and(&right_indices).for_each(|e, &i| {
+                        *e = buffer[i as usize];
+                    });
+                });
+            }
         }
         PadAction::ByLane => {
             for d in 0..data.ndim() {
