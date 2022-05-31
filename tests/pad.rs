@@ -84,6 +84,46 @@ fn test_pad_minmax() {
     );
 }
 
+#[test] // Results verified with the `pad(mode='mean')` function from NumPy. (v1.21.1)
+fn test_pad_mean() {
+    let data = simple_data_1d();
+    assert_eq!(pad(&data, 2, PadMode::Mean), arr1(&[1, 1, 0, 1, 2, 3, 1, 1]));
+    assert_eq!(pad(&arr1(&[1, 2, 3]), 2, PadMode::Mean), arr1(&[2, 2, 1, 2, 3, 2, 2]));
+
+    let data = simple_data_2d();
+    assert_relative_eq!(
+        pad(&data, (1, 2), PadMode::Mean),
+        arr2(&[
+            [5.5, 5.5, 4.0, 5.0, 6.0, 7.0, 5.5, 5.5],
+            [1.5, 1.5, 0.0, 1.0, 2.0, 3.0, 1.5, 1.5],
+            [5.5, 5.5, 4.0, 5.0, 6.0, 7.0, 5.5, 5.5],
+            [9.5, 9.5, 8.0, 9.0, 10.0, 11.0, 9.5, 9.5],
+            [5.5, 5.5, 4.0, 5.0, 6.0, 7.0, 5.5, 5.5]
+        ])
+    );
+
+    let data = simple_data_3d();
+    assert_relative_eq!(
+        pad(&data.view(), (0, 1, 2), PadMode::Mean),
+        arr3(&[
+            [
+                [5.5, 5.5, 4.0, 5.0, 6.0, 7.0, 5.5, 5.5],
+                [1.5, 1.5, 0.0, 1.0, 2.0, 3.0, 1.5, 1.5],
+                [5.5, 5.5, 4.0, 5.0, 6.0, 7.0, 5.5, 5.5],
+                [9.5, 9.5, 8.0, 9.0, 10.0, 11.0, 9.5, 9.5],
+                [5.5, 5.5, 4.0, 5.0, 6.0, 7.0, 5.5, 5.5]
+            ],
+            [
+                [17.5, 17.5, 16.0, 17.0, 18.0, 19.0, 17.5, 17.5],
+                [13.5, 13.5, 12.0, 13.0, 14.0, 15.0, 13.5, 13.5],
+                [17.5, 17.5, 16.0, 17.0, 18.0, 19.0, 17.5, 17.5],
+                [21.5, 21.5, 20.0, 21.0, 22.0, 23.0, 21.5, 21.5],
+                [17.5, 17.5, 16.0, 17.0, 18.0, 19.0, 17.5, 17.5]
+            ]
+        ])
+    );
+}
+
 #[test] // Results verified with the `pad(mode='reflect')` function from NumPy. (v1.21.1)
 fn test_pad_reflect() {
     let data = simple_data_1d();

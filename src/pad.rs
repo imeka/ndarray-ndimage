@@ -4,7 +4,7 @@ use ndarray::{
     s, Array, ArrayBase, ArrayView1, Axis, Data, Dimension, NdIndex, ShapeBuilder, Slice, Zip,
 };
 use ndarray_stats::QuantileExt;
-use num_traits::Zero;
+use num_traits::{FromPrimitive, Num, Zero};
 
 use crate::array_like;
 
@@ -18,6 +18,9 @@ pub enum PadMode<T> {
 
     /// Pads with the maximum value of all or part of the vector along each axis.
     Maximum,
+
+    /// Pads with the mean value of all or part of the vector along each axis.
+    Mean,
 
     /// Pads with the minimum value of all or part of the vector along each axis.
     Minimum,
@@ -51,17 +54,18 @@ impl<T: Copy + Zero> PadMode<T> {
     fn action(&self) -> PadAction {
         match self {
             PadMode::Constant(_) => PadAction::StopAfterCopy,
-            PadMode::Maximum | PadMode::Minimum => PadAction::ByLane,
+            PadMode::Maximum | PadMode::Mean | PadMode::Minimum => PadAction::ByLane,
             PadMode::Reflect | PadMode::Symmetric | PadMode::Wrap => PadAction::ByIndices,
         }
     }
 
     fn dynamic_value(&self, lane: ArrayView1<T>) -> T
     where
-        T: PartialOrd,
+        T: FromPrimitive + Num + PartialOrd,
     {
         match self {
             PadMode::Minimum => *lane.min().unwrap(),
+            PadMode::Mean => lane.mean().unwrap(),
             PadMode::Maximum => *lane.max().unwrap(),
             _ => panic!(""),
         }
@@ -117,7 +121,7 @@ enum PadAction {
 pub fn pad<S, A, D, Sh>(data: &ArrayBase<S, D>, pad: Sh, mode: PadMode<A>) -> Array<A, D>
 where
     S: Data<Elem = A>,
-    A: Zero + Clone + Copy + PartialOrd + std::fmt::Display,
+    A: Clone + Copy + FromPrimitive + Num + PartialOrd + PartialOrd,
     D: Dimension + Copy,
     Sh: ShapeBuilder<Dim = D>,
     <D as Dimension>::Pattern: NdIndex<D>,
