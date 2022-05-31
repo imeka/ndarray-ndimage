@@ -22,6 +22,9 @@ pub enum PadMode<T> {
     /// Pads with the mean value of all or part of the vector along each axis.
     Mean,
 
+    /// Pads with the median value of all or part of the vector along each axis.
+    Median,
+
     /// Pads with the minimum value of all or part of the vector along each axis.
     Minimum,
 
@@ -43,8 +46,11 @@ pub enum PadMode<T> {
     Wrap,
 }
 
-impl<T: Copy + Zero> PadMode<T> {
-    fn init(&self) -> T {
+impl<T> PadMode<T> {
+    fn init(&self) -> T
+    where
+        T: Copy + Zero,
+    {
         match self {
             PadMode::Constant(init) => *init,
             _ => T::zero(),
@@ -54,18 +60,32 @@ impl<T: Copy + Zero> PadMode<T> {
     fn action(&self) -> PadAction {
         match self {
             PadMode::Constant(_) => PadAction::StopAfterCopy,
-            PadMode::Maximum | PadMode::Mean | PadMode::Minimum => PadAction::ByLane,
+            PadMode::Maximum | PadMode::Mean | PadMode::Median | PadMode::Minimum => {
+                PadAction::ByLane
+            }
             PadMode::Reflect | PadMode::Symmetric | PadMode::Wrap => PadAction::ByIndices,
         }
     }
 
     fn dynamic_value(&self, lane: ArrayView1<T>) -> T
     where
-        T: FromPrimitive + Num + PartialOrd,
+        T: Clone + Copy + FromPrimitive + Num + PartialOrd,
     {
         match self {
             PadMode::Minimum => *lane.min().unwrap(),
             PadMode::Mean => lane.mean().unwrap(),
+            PadMode::Median => {
+                let mut buffer = lane.to_owned();
+                buffer.as_slice_mut().unwrap().sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+                let n = buffer.len();
+                let h = (n - 1) / 2;
+                let dadc = if n & 1 > 0 {
+                    buffer[h]
+                } else {
+                    (buffer[h] + buffer[h + 1]) / T::from_u32(2).unwrap()
+                };
+                dadc
+            }
             PadMode::Maximum => *lane.max().unwrap(),
             _ => panic!(""),
         }
@@ -121,7 +141,7 @@ enum PadAction {
 pub fn pad<S, A, D, Sh>(data: &ArrayBase<S, D>, pad: Sh, mode: PadMode<A>) -> Array<A, D>
 where
     S: Data<Elem = A>,
-    A: Clone + Copy + FromPrimitive + Num + PartialOrd + PartialOrd,
+    A: Clone + Copy + FromPrimitive + Num + PartialOrd,
     D: Dimension + Copy,
     Sh: ShapeBuilder<Dim = D>,
     <D as Dimension>::Pattern: NdIndex<D>,
