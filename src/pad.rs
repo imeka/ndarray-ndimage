@@ -1,8 +1,8 @@
 //! This modules defines some image padding methods for 3D images.
 
 use ndarray::{
-    s, Array, Array1, ArrayBase, ArrayView1, Axis, Data, Dimension, NdIndex, ShapeBuilder, Slice,
-    Zip,
+    s, Array, Array1, ArrayBase, ArrayView1, Axis, AxisDescription, Data, Dimension, ShapeBuilder,
+    Slice, Zip,
 };
 use ndarray_stats::QuantileExt;
 use num_traits::{FromPrimitive, Num, Zero};
@@ -110,9 +110,7 @@ impl<T: PartialEq> PadMode<T> {
         *self == PadMode::Median
     }
 
-    fn indices(&self, size: usize, pad: usize) -> (Vec<u16>, Vec<u16>) {
-        let size = size as u16;
-        let pad = pad as u16;
+    fn indices(&self, size: usize, pad: usize) -> (Vec<usize>, Vec<usize>) {
         match self {
             PadMode::Reflect => (
                 (1..=pad).rev().map(|i| i + pad).collect(),
@@ -140,8 +138,8 @@ enum PadAction {
 
 /// Pad an image.
 ///
-/// * `data` - A 3D view to the data to pad.
-/// * `pad_width` - Number of values padded to the edges of each axis.
+/// * `data` - A N-D array of the data to pad.
+/// * `pad` - Number of values padded to the edges of each axis.
 /// * `mode` - Method that will be used to select the padded values. See the
 ///   [`PadMode`](crate::PadMode) enum for more information.
 pub fn pad<S, A, D, Sh>(data: &ArrayBase<S, D>, pad: Sh, mode: PadMode<A>) -> Array<A, D>
@@ -150,19 +148,20 @@ where
     A: Clone + Copy + FromPrimitive + Num + PartialOrd + std::fmt::Display,
     D: Dimension + Copy,
     Sh: ShapeBuilder<Dim = D>,
-    <D as Dimension>::Pattern: NdIndex<D>,
 {
     let pad = pad.into_shape().raw_dim().clone();
     let new_dim = data.raw_dim() + pad.clone() + pad.clone();
     let mut padded = array_like(&data, new_dim, mode.init());
-    let padded_dim = padded.raw_dim();
 
     // Select portion of padded array that needs to be copied from the original array.
-    let mut orig_portion = padded.view_mut();
-    for d in 0..data.ndim() {
-        orig_portion.slice_axis_inplace(Axis(d), Slice::from(pad[d]..padded_dim[d] - pad[d]));
-    }
-    orig_portion.assign(data);
+    padded
+        .view_mut()
+        .slice_each_axis_mut(|ad| {
+            let AxisDescription { axis, len, .. } = ad;
+            let d = axis.index();
+            Slice::from(pad[d]..len - pad[d])
+        })
+        .assign(data);
 
     match mode.action() {
         PadAction::StopAfterCopy => { /* Nothing */ }
@@ -175,10 +174,10 @@ where
                 Zip::from(padded.lanes_mut(Axis(d))).for_each(|mut lane| {
                     buffer.assign(&lane);
                     Zip::from(lane.slice_mut(s![..start])).and(&left_indices).for_each(|e, &i| {
-                        *e = buffer[i as usize];
+                        *e = buffer[i];
                     });
                     Zip::from(lane.slice_mut(s![end..])).and(&right_indices).for_each(|e, &i| {
-                        *e = buffer[i as usize];
+                        *e = buffer[i];
                     });
                 });
             }
