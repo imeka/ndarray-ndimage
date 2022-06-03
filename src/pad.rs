@@ -65,14 +65,14 @@ impl<T: PartialEq> PadMode<T> {
     where
         T: Copy + Zero,
     {
-        match self {
-            PadMode::Constant(init) => *init,
+        match *self {
+            PadMode::Constant(init) => init,
             _ => T::zero(),
         }
     }
 
     fn action(&self) -> PadAction {
-        match self {
+        match *self {
             PadMode::Constant(_) => PadAction::StopAfterCopy,
             PadMode::Maximum | PadMode::Mean | PadMode::Median | PadMode::Minimum => {
                 PadAction::ByLane
@@ -86,7 +86,7 @@ impl<T: PartialEq> PadMode<T> {
     where
         T: Clone + Copy + FromPrimitive + Num + PartialOrd,
     {
-        match self {
+        match *self {
             PadMode::Minimum => *lane.min().unwrap(),
             PadMode::Mean => lane.mean().unwrap(),
             PadMode::Median => {
@@ -111,7 +111,7 @@ impl<T: PartialEq> PadMode<T> {
     }
 
     fn indices(&self, size: usize, pad: usize) -> (Vec<usize>, Vec<usize>) {
-        match self {
+        match *self {
             PadMode::Reflect => (
                 (1..=pad).rev().map(|i| i + pad).collect(),
                 (size - pad - 1..size - 1).rev().map(|i| i + pad).collect(),
