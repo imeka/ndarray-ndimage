@@ -38,9 +38,12 @@ where
         return data.to_owned() * weights[0];
     }
 
+    let weights = weights.as_slice_memory_order().unwrap();
     let symmetry_state = symmetry_state(weights);
     let filter_size = weights.len();
     let size1 = filter_size / 2;
+    let size2 = 2 * size1;
+    //let buffer = Array1::<A>::zeros(data.len_of(axis) + 2 * size1);
 
     //let mut buffer = Array1::zeros(data.len_of(axis) + 2 * size1);
     let mut output = data.to_owned();
@@ -48,29 +51,31 @@ where
         // TODO It's a pad alright, but only a left pad (size1, 0)
         // TODO Allocate a single time
         let buffer = pad(&input, size1, PadMode::Symmetric);
+        let buffer = buffer.as_slice_memory_order().unwrap();
 
         match symmetry_state {
             SymmetryState::NonSymmetric => {
                 Zip::indexed(o).for_each(|i, o| {
-                    *o = buffer.slice(s![i..i + filter_size]).dot(weights);
+                    *o = weights
+                        .iter()
+                        .enumerate()
+                        .fold(A::zero(), |acc, (ii, &w)| acc + buffer[i + ii] * w)
                 });
             }
             SymmetryState::Symmetric => {
                 Zip::indexed(o).for_each(|i, o| {
                     let middle = buffer[size1 + i] * weights[size1];
-                    *o = Zip::from(buffer.slice(s![i..i + size1]))
-                        .and(buffer.slice(s![i + size1 + 1..i + size1 + size1 + 1; -1]))
-                        .and(weights.slice(s![..size1]))
-                        .fold(middle, |acc, &l, &r, &w| acc + (l + r) * w);
+                    *o = weights[..size1].iter().enumerate().fold(middle, |acc, (ii, &w)| {
+                        acc + (buffer[i + ii] + buffer[i + size2 - ii]) * w
+                    })
                 });
             }
             SymmetryState::AntiSymmetric => {
                 Zip::indexed(o).for_each(|i, o| {
                     let middle = buffer[size1 + i] * weights[size1];
-                    *o = Zip::from(buffer.slice(s![i..i + size1]))
-                        .and(buffer.slice(s![i + size1 + 1..i + size1 + size1 + 1; -1]))
-                        .and(weights.slice(s![..size1]))
-                        .fold(middle, |acc, &l, &r, &w| acc + (l - r) * w);
+                    *o = weights[..size1].iter().enumerate().fold(middle, |acc, (ii, &w)| {
+                        acc + (buffer[i + ii] - buffer[i + size2 - ii]) * w
+                    })
                 });
             }
         }
@@ -86,9 +91,8 @@ enum SymmetryState {
     AntiSymmetric,
 }
 
-fn symmetry_state<S, A>(arr: &ArrayBase<S, Ix1>) -> SymmetryState
+fn symmetry_state<A>(arr: &[A]) -> SymmetryState
 where
-    S: Data<Elem = A>,
     A: Float,
 {
     // Test for symmetry or anti-symmetry
