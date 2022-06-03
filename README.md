@@ -14,7 +14,7 @@ Currently available routines include:
 - Interpolation: spline_filter, spline_filter1d
 - Measurements: label, label_histogram, largest_connected_components, most_frequent_label
 - Morphology: binary_dilation, binary_erosion
-- Padding: reflect, symmetric and wrap
+- Padding: Almost all modes. Work for all dimensions and types.
 
 **This crate is a work-in-progress.** Only a subset of the `scipy.ndimage` functions are provided and most of them offer less options than SciPy. Some are offered only in 3D, with less boundary modes, with only 2 types of structuring element, only for binary data, only for f64, etc.
 
