@@ -1,7 +1,120 @@
-use ndarray::{s, Array, ArrayBase, Axis, Data, Dimension, Ix3, Zip};
-use num_traits::{Float, ToPrimitive};
+use ndarray::{s, Array, ArrayBase, Axis, Data, Dimension, Ix1, Ix3, ScalarOperand, Zip};
+use num_traits::{Float, FromPrimitive, ToPrimitive};
 
-use crate::{array_like, dim_minus_1, Mask};
+use crate::{array_like, dim_minus_1, pad, Mask, PadMode};
+
+/*pub fn correlate<S, A, D>(
+    data: &ArrayBase<S, D>,
+    weights: &ArrayBase<S, D>,
+    axis: Axis,
+) -> Array<A, D>
+where
+    S: Data<Elem = A>,
+    A: Float + ToPrimitive,
+    D: Dimension,
+{
+    //
+}*/
+
+/// Calculate a 1-D correlation along the given axis.
+///
+/// The lines of the array along the given axis are correlated with the given weights.
+///
+/// * `data` - The input N-D data.
+/// * `weights` - 1-D sequence of numbers.
+/// * `axis` - The axis of input along which to calculate.
+pub fn correlate1d<S, A, D>(
+    data: &ArrayBase<S, D>,
+    weights: &ArrayBase<S, Ix1>,
+    axis: Axis,
+) -> Array<A, D>
+where
+    S: Data<Elem = A>,
+    // TODO Should be Num, not Float
+    A: Float + ScalarOperand + FromPrimitive + std::fmt::Display,
+    D: Dimension,
+{
+    if weights.len() == 1 {
+        return data.to_owned() * weights[0];
+    }
+
+    let symmetry_state = symmetry_state(weights);
+    let filter_size = weights.len();
+    let size1 = filter_size / 2;
+
+    //let mut buffer = Array1::zeros(data.len_of(axis) + 2 * size1);
+    let mut output = data.to_owned();
+    Zip::from(data.lanes(axis)).and(output.lanes_mut(axis)).for_each(|input, o| {
+        // TODO It's a pad alright, but only a left pad (size1, 0)
+        // TODO Allocate a single time
+        let buffer = pad(&input, size1, PadMode::Symmetric);
+
+        match symmetry_state {
+            SymmetryState::NonSymmetric => {
+                Zip::indexed(o).for_each(|i, o| {
+                    *o = buffer.slice(s![i..i + filter_size]).dot(weights);
+                });
+            }
+            SymmetryState::Symmetric => {
+                Zip::indexed(o).for_each(|i, o| {
+                    let middle = buffer[size1 + i] * weights[size1];
+                    *o = Zip::from(buffer.slice(s![i..i + size1]))
+                        .and(buffer.slice(s![i + size1 + 1..i + size1 + size1 + 1; -1]))
+                        .and(weights.slice(s![..size1]))
+                        .fold(middle, |acc, &l, &r, &w| acc + (l + r) * w);
+                });
+            }
+            SymmetryState::AntiSymmetric => {
+                Zip::indexed(o).for_each(|i, o| {
+                    let middle = buffer[size1 + i] * weights[size1];
+                    *o = Zip::from(buffer.slice(s![i..i + size1]))
+                        .and(buffer.slice(s![i + size1 + 1..i + size1 + size1 + 1; -1]))
+                        .and(weights.slice(s![..size1]))
+                        .fold(middle, |acc, &l, &r, &w| acc + (l - r) * w);
+                });
+            }
+        }
+    });
+
+    output
+}
+
+#[derive(PartialEq)]
+enum SymmetryState {
+    NonSymmetric,
+    Symmetric,
+    AntiSymmetric,
+}
+
+fn symmetry_state<S, A>(arr: &ArrayBase<S, Ix1>) -> SymmetryState
+where
+    S: Data<Elem = A>,
+    A: Float,
+{
+    // Test for symmetry or anti-symmetry
+    let mut state = SymmetryState::NonSymmetric;
+    let filter_size = arr.len();
+    let size1 = filter_size / 2;
+    if filter_size & 1 > 0 {
+        state = SymmetryState::Symmetric;
+        for ii in 1..=size1 {
+            if (arr[ii + size1] - arr[size1 - ii]).abs() > A::epsilon() {
+                state = SymmetryState::NonSymmetric;
+                break;
+            }
+        }
+        if state == SymmetryState::NonSymmetric {
+            state = SymmetryState::AntiSymmetric;
+            for ii in 1..=size1 {
+                if (arr[ii + size1] + arr[size1 - ii]).abs() > A::epsilon() {
+                    state = SymmetryState::NonSymmetric;
+                    break;
+                }
+            }
+        }
+    }
+    state
+}
 
 /// Binary median filter.
 ///
