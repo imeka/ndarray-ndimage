@@ -9,7 +9,7 @@ use num_traits::{FromPrimitive, Num, Zero};
 
 use crate::array_like;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 /// Method that will be used to select the padded values.
 pub enum PadMode<T> {
     /// Pads with a constant value.
@@ -145,16 +145,40 @@ enum PadAction {
 pub fn pad<S, A, D, Sh>(data: &ArrayBase<S, D>, pad: Sh, mode: PadMode<A>) -> Array<A, D>
 where
     S: Data<Elem = A>,
-    A: Clone + Copy + FromPrimitive + Num + PartialOrd + std::fmt::Display,
-    D: Dimension + Copy,
-    Sh: ShapeBuilder<Dim = D>,
+    A: Copy + FromPrimitive + Num + PartialOrd,
+    D: Dimension,
+    Sh: ShapeBuilder<Dim = D> + Copy,
 {
     let pad = pad.into_shape().raw_dim().clone();
     let new_dim = data.raw_dim() + pad.clone() + pad.clone();
     let mut padded = array_like(&data, new_dim, mode.init());
+    pad_to(data, pad, mode, &mut padded);
+    padded
+}
+
+/// Pad an image.
+///
+/// Write the result in the already_allocated array `output`.
+///
+/// * `data` - A N-D array of the data to pad.
+/// * `pad` - Number of values padded to the edges of each axis.
+/// * `mode` - Method that will be used to select the padded values. See the
+///   [`PadMode`](crate::PadMode) enum for more information.
+pub fn pad_to<S, A, D, Sh>(
+    data: &ArrayBase<S, D>,
+    pad: Sh,
+    mode: PadMode<A>,
+    output: &mut Array<A, D>,
+) where
+    S: Data<Elem = A>,
+    A: Copy + FromPrimitive + Num + PartialOrd,
+    D: Dimension,
+    Sh: ShapeBuilder<Dim = D>,
+{
+    let pad = pad.into_shape().raw_dim().clone();
 
     // Select portion of padded array that needs to be copied from the original array.
-    padded
+    output
         .view_mut()
         .slice_each_axis_mut(|ad| {
             let AxisDescription { axis, len, .. } = ad;
@@ -170,8 +194,8 @@ where
                 let start = pad[d];
                 let end = start + data.shape()[d];
                 let (left_indices, right_indices) = mode.indices(data.shape()[d], pad[d]);
-                let mut buffer = Array1::zeros(padded.shape()[d]);
-                Zip::from(padded.lanes_mut(Axis(d))).for_each(|mut lane| {
+                let mut buffer = Array1::zeros(output.shape()[d]);
+                Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
                     buffer.assign(&lane);
                     Zip::from(lane.slice_mut(s![..start])).and(&left_indices).for_each(|e, &i| {
                         *e = buffer[i];
@@ -188,7 +212,7 @@ where
                 let end = start + data.shape()[d];
                 let mut buffer =
                     if mode.needs_buffer() { Array1::zeros(end - start) } else { Array1::zeros(0) };
-                Zip::from(padded.lanes_mut(Axis(d))).for_each(|mut lane| {
+                Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
                     let v = mode.dynamic_value(lane.slice(s![start..end]), &mut buffer);
                     lane.slice_mut(s![..start]).fill(v);
                     lane.slice_mut(s![end..]).fill(v);
@@ -199,7 +223,7 @@ where
             for d in 0..data.ndim() {
                 let start = pad[d];
                 let end = start + data.shape()[d];
-                Zip::from(padded.lanes_mut(Axis(d))).for_each(|mut lane| {
+                Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
                     let left = lane[start];
                     let right = lane[end - 1];
                     lane.slice_mut(s![..start]).fill(left);
@@ -208,5 +232,4 @@ where
             }
         }
     }
-    padded
 }
