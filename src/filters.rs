@@ -1,7 +1,7 @@
 use ndarray::{s, Array, ArrayBase, Axis, Data, Dimension, Ix1, Ix3, ScalarOperand, Zip};
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 
-use crate::{array_like, dim_minus_1, pad, Mask, PadMode};
+use crate::{array_like, dim_minus_1, Mask};
 
 /*pub fn correlate<S, A, D>(
     data: &ArrayBase<S, D>,
@@ -31,7 +31,7 @@ pub fn correlate1d<S, A, D>(
 where
     S: Data<Elem = A>,
     // TODO Should be Num, not Float
-    A: Float + ScalarOperand + FromPrimitive + std::fmt::Display,
+    A: Float + ScalarOperand + FromPrimitive + std::fmt::Debug + std::fmt::Display,
     D: Dimension,
 {
     if weights.len() == 1 {
@@ -43,15 +43,17 @@ where
     let filter_size = weights.len();
     let size1 = filter_size / 2;
     let size2 = 2 * size1;
-    //let buffer = Array1::<A>::zeros(data.len_of(axis) + 2 * size1);
+    let n = data.len_of(axis);
+    let mut buffer = vec![A::zero(); n + 2 * size1];
 
-    //let mut buffer = Array1::zeros(data.len_of(axis) + 2 * size1);
     let mut output = data.to_owned();
     Zip::from(data.lanes(axis)).and(output.lanes_mut(axis)).for_each(|input, o| {
-        // TODO It's a pad alright, but only a left pad (size1, 0)
-        // TODO Allocate a single time
-        let buffer = pad(&input, size1, PadMode::Symmetric);
-        let buffer = buffer.as_slice_memory_order().unwrap();
+        // buffer is a pad(Symmetric, size1)
+        (0..size1).rev().enumerate().for_each(|(i, j)| buffer[i] = input[j]);
+        Zip::indexed(input).for_each(|i, &input| {
+            buffer[i + size1] = input;
+        });
+        (n + size1..buffer.len()).enumerate().for_each(|(i, j)| buffer[j] = input[n - i - 1]);
 
         match symmetry_state {
             SymmetryState::NonSymmetric => {
