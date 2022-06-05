@@ -3,10 +3,18 @@ use ndarray::{arr1, arr2, s, Array1, Axis};
 
 use ndarray_ndimage::{correlate1d, gaussian_filter, median_filter, CorrelateMode, Mask};
 
-#[test]
+#[test] // Results verified with SciPy. (v1.9.0)
 fn test_correlate1d() {
     let arr = arr1(&[2.0, 8.0, 0.0, 4.0, 1.0, 9.0, 9.0, 0.0]);
-    let arr2 = arr1(&[2.0, 8.0, 0.0, 4.0, 9.0, 9.0, 0.0]);
+    let arr_odd = arr1(&[2.0, 8.0, 0.0, 4.0, 9.0, 9.0, 0.0]);
+    let matrix = arr2(&[
+        [1.5, 2.3, 0.7, 1.1, 6.0, 1.7],
+        [0.5, 1.3, 0.0, 0.1, 1.2, 0.7],
+        [0.4, 1.3, 2.7, 0.1, 0.8, 0.1],
+        [2.1, 0.1, 0.7, 0.1, 1.0, 2.8],
+        [5.7, 4.0, 1.8, 9.1, 4.8, 2.7],
+    ]);
+
     assert_eq!(
         correlate1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), CorrelateMode::Reflect),
         arr1(&[8.0, 26.0, 8.0, 12.0, 7.0, 28.0, 36.0, 9.0])
@@ -30,7 +38,7 @@ fn test_correlate1d() {
         arr1(&[16.0, 26.0, 12.0, 13.0, 16.0, 37.0, 36.0, 9.0])
     );
     assert_eq!(
-        correlate1d(&arr2, &arr1(&[1.5, 3.0, 1.5]), Axis(0), CorrelateMode::Reflect),
+        correlate1d(&arr_odd, &arr1(&[1.5, 3.0, 1.5]), Axis(0), CorrelateMode::Reflect),
         arr1(&[21.0, 27.0, 18.0, 25.5, 46.5, 40.5, 13.5])
     );
     assert_eq!(
@@ -44,16 +52,117 @@ fn test_correlate1d() {
         arr1(&[0.0, 26.0, 4.0, 11.0, -2.0, 19.0, 36.0, 9.0])
     );
     assert_eq!(
-        correlate1d(&arr2, &arr1(&[1.5, 3.0, -1.5]), Axis(0), CorrelateMode::Reflect),
+        correlate1d(&arr_odd, &arr1(&[1.5, 3.0, -1.5]), Axis(0), CorrelateMode::Reflect),
         arr1(&[-3.0, 27.0, 6.0, -1.5, 19.5, 40.5, 13.5])
     );
     assert_eq!(
         correlate1d(&arr, &arr1(&[1.5, 2.0, 0.5, -2.0, -1.5]), Axis(0), CorrelateMode::Reflect),
         arr1(&[1.0, 5.0, 9.5, -1.5, -23.0, -5.5, 24.0, 18.0])
     );
+
+    // Other modes and dimensions
+    assert_relative_eq!(
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(0), CorrelateMode::Constant(0.5)),
+        arr2(&[
+            [5.0, 7.4, 2.6, 3.8, 18.5, 5.6],
+            [3.0, 6.2, 0.7, 1.4, 9.6, 3.8],
+            [1.7, 5.2, 8.1, 0.4, 3.6, 1.0],
+            [6.7, 1.6, 4.8, 0.4, 3.8, 8.5],
+            [19.2, 12.1, 6.1, 27.4, 15.4, 10.9]
+        ]),
+        epsilon = 1e-7,
+    );
+    assert_relative_eq!(
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), CorrelateMode::Constant(0.5)),
+        arr2(&[
+            [5.0, 8.4, 4.4, 4.0, 19.1, 11.1],
+            [2.0, 4.4, 1.3, 0.3, 3.7, 3.3],
+            [1.7, 4.3, 9.4, 3.0, 2.5, 1.1],
+            [6.8, 2.4, 2.2, 1.0, 3.1, 9.4],
+            [17.6, 17.7, 9.4, 29.1, 23.5, 12.9]
+        ]),
+        epsilon = 1e-7,
+    );
+    assert_relative_eq!(
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(0), CorrelateMode::Nearest),
+        arr2(&[
+            [6.0, 9.2, 2.8, 4.4, 24., 6.8],
+            [3.0, 6.2, 0.7, 1.4, 9.6, 3.8],
+            [1.7, 5.2, 8.1, 0.4, 3.6, 1.0],
+            [6.7, 1.6, 4.8, 0.4, 3.8, 8.5],
+            [19.2, 12.1, 6.1, 27.4, 15.4, 10.9],
+        ]),
+        epsilon = 1e-7,
+    );
+    assert_relative_eq!(
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), CorrelateMode::Nearest),
+        arr2(&[
+            [6.0, 8.4, 4.4, 4.0, 19.1, 11.1],
+            [2.0, 4.4, 1.3, 0.3, 3.7, 3.3],
+            [1.6, 4.3, 9.4, 3.0, 2.5, 1.1],
+            [8.4, 2.4, 2.2, 1.0, 3.1, 9.4],
+            [22.8, 17.7, 9.4, 29.1, 23.5, 12.9]
+        ]),
+        epsilon = 1e-7,
+    );
+    assert_relative_eq!(
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(0), CorrelateMode::Mirror),
+        arr2(&[
+            [5.0, 8.2, 2.1, 3.4, 19.2, 5.8],
+            [3.0, 6.2, 0.7, 1.4, 9.6, 3.8],
+            [1.7, 5.2, 8.1, 0.4, 3.6, 1.0],
+            [6.7, 1.6, 4.8, 0.4, 3.8, 8.5],
+            [19.2, 12.1, 6.1, 27.4, 15.4, 10.9]
+        ]),
+        epsilon = 1e-7,
+    );
+    assert_relative_eq!(
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), CorrelateMode::Mirror),
+        arr2(&[
+            [6.8, 8.4, 4.4, 4., 19.1, 11.1],
+            [2.8, 4.4, 1.3, 0.3, 3.7, 3.3],
+            [2.5, 4.3, 9.4, 3.0, 2.5, 1.1],
+            [6.4, 2.4, 2.2, 1.0, 3.1, 9.4],
+            [21.1, 17.7, 9.4, 29.1, 23.5, 12.9]
+        ]),
+        epsilon = 1e-7,
+    );
+    assert_relative_eq!(
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), CorrelateMode::Reflect),
+        arr2(&[
+            [6.0, 8.4, 4.4, 4.0, 19.1, 11.1],
+            [2.0, 4.4, 1.3, 0.3, 3.7, 3.3],
+            [1.6, 4.3, 9.4, 3.0, 2.5, 1.1],
+            [8.4, 2.4, 2.2, 1.0, 3.1, 9.4],
+            [22.8, 17.7, 9.4, 29.1, 23.5, 12.9]
+        ]),
+        epsilon = 1e-7,
+    );
+    assert_relative_eq!(
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(0), CorrelateMode::Wrap),
+        arr2(&[
+            [10.2, 10.9, 3.9, 12.4, 22.8, 7.8],
+            [3.0, 6.2, 0.7, 1.4, 9.6, 3.8],
+            [1.7, 5.2, 8.1, 0.4, 3.6, 1.0],
+            [6.7, 1.6, 4.8, 0.4, 3.8, 8.5],
+            [19.2, 12.1, 6.1, 27.4, 15.4, 10.9]
+        ]),
+        epsilon = 1e-7,
+    );
+    assert_relative_eq!(
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), CorrelateMode::Wrap),
+        arr2(&[
+            [6.2, 8.4, 4.4, 4., 19.1, 11.1],
+            [2.2, 4.4, 1.3, 0.3, 3.7, 3.3],
+            [1.3, 4.3, 9.4, 3.0, 2.5, 1.1],
+            [9.1, 2.4, 2.2, 1.0, 3.1, 9.4],
+            [19.8, 17.7, 9.4, 29.1, 23.5, 12.9]
+        ]),
+        epsilon = 1e-7,
+    );
 }
 
-#[test]
+#[test] // Results verified with SciPy. (v1.9.0)
 fn test_median_filter() {
     let mut gt = Mask::from_elem((3, 3, 3), false);
     let mut mask = gt.clone();
@@ -82,7 +191,7 @@ fn test_median_filter() {
     assert_eq!(median_filter(&mask.view()), gt);
 }
 
-#[test]
+#[test] // Results verified with SciPy. (v1.9.0)
 fn test_gaussian_filter_1d() {
     let mut a: Array1<f32> = (0..7).map(|v| v as f32).collect();
     assert_relative_eq!(
@@ -98,7 +207,7 @@ fn test_gaussian_filter_1d() {
     );
 }
 
-#[test]
+#[test] // Results verified with SciPy. (v1.9.0)
 fn test_gaussian_filter_2d() {
     let a: Array1<f32> = (0..70).step_by(2).map(|v| v as f32).collect();
     let mut a = a.into_shape((5, 7)).unwrap();
@@ -149,7 +258,7 @@ fn test_gaussian_filter_2d() {
     );
 }
 
-#[test]
+#[test] // Results verified with SciPy. (v1.9.0)
 fn test_gaussian_filter_3d() {
     let a: Array1<f32> = (0..720).map(|v| v as f32 / 50.0).collect();
     let mut a = a.into_shape((10, 9, 8)).unwrap();
@@ -190,7 +299,7 @@ fn test_gaussian_filter_3d() {
 }
 
 #[should_panic]
-#[test]
+#[test] // Results verified with SciPy. (v1.9.0)
 fn test_gaussian_filter_panic() {
     let a: Array1<f32> = (0..7).map(|v| v as f32).collect();
 
