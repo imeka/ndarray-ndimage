@@ -61,7 +61,7 @@ pub enum PadMode<T> {
 }
 
 impl<T: PartialEq> PadMode<T> {
-    fn init(&self) -> T
+    pub(crate) fn init(&self) -> T
     where
         T: Copy + Zero,
     {

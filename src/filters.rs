@@ -73,7 +73,7 @@ pub fn correlate1d<S, A, D>(
 where
     S: Data<Elem = A>,
     // TODO Should be Num, not Float
-    A: Float + ScalarOperand + FromPrimitive,
+    A: Float + ScalarOperand + FromPrimitive + std::fmt::Debug,
     D: Dimension,
 {
     if weights.len() == 1 {
@@ -88,7 +88,7 @@ where
 
     let mode = mode.to_pad_mode();
     let n = data.len_of(axis);
-    let mut buffer = Array1::zeros(n + 2 * size1);
+    let mut buffer = Array1::from_elem(n + 2 * size1, mode.init());
 
     let mut output = data.to_owned();
     Zip::from(data.lanes(axis)).and(output.lanes_mut(axis)).for_each(|input, o| {
