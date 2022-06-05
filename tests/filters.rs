@@ -1,54 +1,54 @@
 use approx::assert_relative_eq;
 use ndarray::{arr1, arr2, s, Array1, Axis};
 
-use ndarray_ndimage::{correlate1d, gaussian_filter, median_filter, Mask};
+use ndarray_ndimage::{correlate1d, gaussian_filter, median_filter, CorrelateMode, Mask};
 
 #[test]
 fn test_correlate1d() {
     let arr = arr1(&[2.0, 8.0, 0.0, 4.0, 1.0, 9.0, 9.0, 0.0]);
     let arr2 = arr1(&[2.0, 8.0, 0.0, 4.0, 9.0, 9.0, 0.0]);
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 3.0]), Axis(0)),
+        correlate1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), CorrelateMode::Reflect),
         arr1(&[8.0, 26.0, 8.0, 12.0, 7.0, 28.0, 36.0, 9.0])
     );
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 3.0, 2.0]), Axis(0)),
+        correlate1d(&arr, &arr1(&[1.0, 3.0, 2.0]), Axis(0), CorrelateMode::Reflect),
         arr1(&[24.0, 26.0, 16.0, 14.0, 25.0, 46.0, 36.0, 9.0])
     );
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 3.0, 2.0, 1.0]), Axis(0)),
+        correlate1d(&arr, &arr1(&[1.0, 3.0, 2.0, 1.0]), Axis(0), CorrelateMode::Reflect),
         arr1(&[26.0, 24.0, 30.0, 17.0, 23.0, 34.0, 46.0, 36.0])
     );
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.5, 3.0, 1.5, 0.5]), Axis(0)),
+        correlate1d(&arr, &arr1(&[1.5, 3.0, 1.5, 0.5]), Axis(0), CorrelateMode::Reflect),
         arr1(&[25.0, 21.0, 29.0, 18.5, 18.0, 27.0, 42.0, 40.5])
     );
 
     // Symmetric
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 3.0, 1.0]), Axis(0)),
+        correlate1d(&arr, &arr1(&[1.0, 3.0, 1.0]), Axis(0), CorrelateMode::Reflect),
         arr1(&[16.0, 26.0, 12.0, 13.0, 16.0, 37.0, 36.0, 9.0])
     );
     assert_eq!(
-        correlate1d(&arr2, &arr1(&[1.5, 3.0, 1.5]), Axis(0)),
+        correlate1d(&arr2, &arr1(&[1.5, 3.0, 1.5]), Axis(0), CorrelateMode::Reflect),
         arr1(&[21.0, 27.0, 18.0, 25.5, 46.5, 40.5, 13.5])
     );
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.5, 2.0, 0.5, 2.0, 1.5]), Axis(0)),
+        correlate1d(&arr, &arr1(&[1.5, 2.0, 0.5, 2.0, 1.5]), Axis(0), CorrelateMode::Reflect),
         arr1(&[33.0, 17.0, 28.5, 29.5, 40.0, 30.5, 24.0, 45.0])
     );
 
     // Anti-symmetric
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 3.0, -1.0]), Axis(0)),
+        correlate1d(&arr, &arr1(&[1.0, 3.0, -1.0]), Axis(0), CorrelateMode::Reflect),
         arr1(&[0.0, 26.0, 4.0, 11.0, -2.0, 19.0, 36.0, 9.0])
     );
     assert_eq!(
-        correlate1d(&arr2, &arr1(&[1.5, 3.0, -1.5]), Axis(0)),
+        correlate1d(&arr2, &arr1(&[1.5, 3.0, -1.5]), Axis(0), CorrelateMode::Reflect),
         arr1(&[-3.0, 27.0, 6.0, -1.5, 19.5, 40.5, 13.5])
     );
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.5, 2.0, 0.5, -2.0, -1.5]), Axis(0)),
+        correlate1d(&arr, &arr1(&[1.5, 2.0, 0.5, -2.0, -1.5]), Axis(0), CorrelateMode::Reflect),
         arr1(&[1.0, 5.0, 9.5, -1.5, -23.0, -5.5, 24.0, 18.0])
     );
 }

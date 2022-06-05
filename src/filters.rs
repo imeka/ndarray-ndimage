@@ -1,7 +1,48 @@
-use ndarray::{s, Array, ArrayBase, Axis, Data, Dimension, Ix1, Ix3, ScalarOperand, Zip};
+use ndarray::{s, Array, Array1, ArrayBase, Axis, Data, Dimension, Ix1, Ix3, ScalarOperand, Zip};
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 
-use crate::{array_like, dim_minus_1, Mask};
+use crate::{array_like, dim_minus_1, pad_to, Mask, PadMode};
+
+/// Method that will be used to determines how the input array is extended beyond its boundaries.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum CorrelateMode<T> {
+    /// The input is extended by filling all values beyond the edge with the same constant value,
+    ///
+    /// `[1, 2, 3] -> [T, T, 1, 2, 3, T, T]`
+    Constant(T),
+
+    /// The input is extended by replicating the last pixel.
+    ///
+    /// `[1, 2, 3] -> [1, 1, 1, 2, 3, 3, 3]`
+    Nearest,
+
+    /// The input is extended by reflecting about the center of the last pixel.
+    ///
+    /// `[1, 2, 3] -> [3, 2, 1, 2, 3, 2, 1]`
+    Mirror,
+
+    /// The input is extended by reflecting about the edge of the last pixel.
+    ///
+    /// `[1, 2, 3] -> [2, 1, 1, 2, 3, 3, 2]`
+    Reflect,
+
+    /// The input is extended by wrapping around to the opposite edge.
+    ///
+    /// `[1, 2, 3] -> [2, 3, 1, 2, 3, 1, 2]`
+    Wrap,
+}
+
+impl<T: Copy> CorrelateMode<T> {
+    fn to_pad_mode(&self) -> PadMode<T> {
+        match *self {
+            CorrelateMode::Constant(t) => PadMode::Constant(t),
+            CorrelateMode::Nearest => PadMode::Edge,
+            CorrelateMode::Mirror => PadMode::Reflect,
+            CorrelateMode::Reflect => PadMode::Symmetric,
+            CorrelateMode::Wrap => PadMode::Wrap,
+        }
+    }
+}
 
 /*pub fn correlate<S, A, D>(
     data: &ArrayBase<S, D>,
@@ -27,11 +68,12 @@ pub fn correlate1d<S, A, D>(
     data: &ArrayBase<S, D>,
     weights: &ArrayBase<S, Ix1>,
     axis: Axis,
+    mode: CorrelateMode<A>,
 ) -> Array<A, D>
 where
     S: Data<Elem = A>,
     // TODO Should be Num, not Float
-    A: Float + ScalarOperand + FromPrimitive + std::fmt::Debug + std::fmt::Display,
+    A: Float + ScalarOperand + FromPrimitive,
     D: Dimension,
 {
     if weights.len() == 1 {
@@ -43,40 +85,45 @@ where
     let filter_size = weights.len();
     let size1 = filter_size / 2;
     let size2 = 2 * size1;
+
+    let mode = mode.to_pad_mode();
     let n = data.len_of(axis);
-    let mut buffer = vec![A::zero(); n + 2 * size1];
+    let mut buffer = Array1::zeros(n + 2 * size1);
 
     let mut output = data.to_owned();
     Zip::from(data.lanes(axis)).and(output.lanes_mut(axis)).for_each(|input, o| {
-        // buffer is a pad(Symmetric, size1)
-        (0..size1).rev().enumerate().for_each(|(i, j)| buffer[i] = input[j]);
-        Zip::indexed(input).for_each(|i, &input| {
-            buffer[i + size1] = input;
-        });
-        (n + size1..buffer.len()).enumerate().for_each(|(i, j)| buffer[j] = input[n - i - 1]);
+        pad_to(&input, size1, mode, &mut buffer);
+        let buffer = buffer.as_slice_memory_order().unwrap();
 
         match symmetry_state {
             SymmetryState::NonSymmetric => {
                 Zip::indexed(o).for_each(|i, o| {
-                    *o = weights
-                        .iter()
-                        .enumerate()
-                        .fold(A::zero(), |acc, (ii, &w)| acc + buffer[i + ii] * w)
+                    *o = weights.iter().zip(i..).fold(A::zero(), |acc, (&w, i)| acc + buffer[i] * w)
                 });
             }
             SymmetryState::Symmetric => {
                 Zip::indexed(o).for_each(|i, o| {
                     let middle = buffer[size1 + i] * weights[size1];
-                    *o = weights[..size1].iter().enumerate().fold(middle, |acc, (ii, &w)| {
-                        acc + (buffer[i + ii] + buffer[i + size2 - ii]) * w
+                    let mut left = i;
+                    let mut right = i + size2;
+                    *o = weights[..size1].iter().fold(middle, |acc, &w| {
+                        let ans = acc + (buffer[left] + buffer[right]) * w;
+                        left += 1;
+                        right -= 1;
+                        ans
                     })
                 });
             }
             SymmetryState::AntiSymmetric => {
                 Zip::indexed(o).for_each(|i, o| {
                     let middle = buffer[size1 + i] * weights[size1];
-                    *o = weights[..size1].iter().enumerate().fold(middle, |acc, (ii, &w)| {
-                        acc + (buffer[i + ii] - buffer[i + size2 - ii]) * w
+                    let mut left = i;
+                    let mut right = i + size2;
+                    *o = weights[..size1].iter().fold(middle, |acc, &w| {
+                        let ans = acc + (buffer[left] - buffer[right]) * w;
+                        left += 1;
+                        right -= 1;
+                        ans
                     })
                 });
             }
