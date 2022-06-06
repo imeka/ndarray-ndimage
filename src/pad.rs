@@ -110,19 +110,20 @@ impl<T: PartialEq> PadMode<T> {
         *self == PadMode::Median
     }
 
-    fn indices(&self, size: usize, pad: usize) -> (Vec<usize>, Vec<usize>) {
+    fn indices(&self, size: usize, pad_left: usize, pad_right: usize) -> (Vec<usize>, Vec<usize>) {
         match *self {
             PadMode::Reflect => (
-                (1..=pad).rev().map(|i| i + pad).collect(),
-                (size - pad - 1..size - 1).rev().map(|i| i + pad).collect(),
+                (1..=pad_left).rev().map(|i| i + pad_left).collect(),
+                (size - pad_right - 1..size - 1).rev().map(|i| i + pad_left).collect(),
             ),
             PadMode::Symmetric => (
-                (0..pad).rev().map(|i| i + pad).collect(),
-                (size - pad..size).rev().map(|i| i + pad).collect(),
+                (0..pad_left).rev().map(|i| i + pad_left).collect(),
+                (size - pad_right..size).rev().map(|i| i + pad_left).collect(),
             ),
-            PadMode::Wrap => {
-                ((size - pad..size).map(|i| i + pad).collect(), (0..pad).map(|i| i + pad).collect())
-            }
+            PadMode::Wrap => (
+                (size - pad_left..size).map(|i| i + pad_left).collect(),
+                (0..pad_right).map(|i| i + pad_left).collect(),
+            ),
             _ => panic!("Only Reflect, Symmetric and Wrap have indices"),
         }
     }
@@ -142,15 +143,16 @@ enum PadAction {
 /// * `pad` - Number of values padded to the edges of each axis.
 /// * `mode` - Method that will be used to select the padded values. See the
 ///   [`PadMode`](crate::PadMode) enum for more information.
-pub fn pad<S, A, D, Sh>(data: &ArrayBase<S, D>, pad: Sh, mode: PadMode<A>) -> Array<A, D>
+pub fn pad<S, A, D, Sh>(data: &ArrayBase<S, D>, pad: (Sh, Sh), mode: PadMode<A>) -> Array<A, D>
 where
     S: Data<Elem = A>,
     A: Copy + FromPrimitive + Num + PartialOrd,
     D: Dimension,
     Sh: ShapeBuilder<Dim = D> + Copy,
 {
-    let pad = pad.into_shape().raw_dim().clone();
-    let new_dim = data.raw_dim() + pad.clone() + pad.clone();
+    let new_dim = data.raw_dim()
+        + pad.0.into_shape().raw_dim().clone()
+        + pad.1.into_shape().raw_dim().clone();
     let mut padded = array_like(&data, new_dim, mode.init());
     pad_to(data, pad, mode, &mut padded);
     padded
@@ -164,9 +166,10 @@ where
 /// * `pad` - Number of values padded to the edges of each axis.
 /// * `mode` - Method that will be used to select the padded values. See the
 ///   [`PadMode`](crate::PadMode) enum for more information.
+/// * `output` - An already allocated N-D array used to write the results.
 pub fn pad_to<S, A, D, Sh>(
     data: &ArrayBase<S, D>,
-    pad: Sh,
+    pad: (Sh, Sh),
     mode: PadMode<A>,
     output: &mut Array<A, D>,
 ) where
@@ -175,7 +178,8 @@ pub fn pad_to<S, A, D, Sh>(
     D: Dimension,
     Sh: ShapeBuilder<Dim = D>,
 {
-    let pad = pad.into_shape().raw_dim().clone();
+    let pad_left = pad.0.into_shape().raw_dim().clone();
+    let pad_right = pad.1.into_shape().raw_dim().clone();
 
     // Select portion of padded array that needs to be copied from the original array.
     output
@@ -183,7 +187,7 @@ pub fn pad_to<S, A, D, Sh>(
         .slice_each_axis_mut(|ad| {
             let AxisDescription { axis, len, .. } = ad;
             let d = axis.index();
-            Slice::from(pad[d]..len - pad[d])
+            Slice::from(pad_left[d]..len - pad_right[d])
         })
         .assign(data);
 
@@ -191,9 +195,10 @@ pub fn pad_to<S, A, D, Sh>(
         PadAction::StopAfterCopy => { /* Nothing */ }
         PadAction::ByIndices => {
             for d in 0..data.ndim() {
-                let start = pad[d];
+                let start = pad_left[d];
                 let end = start + data.shape()[d];
-                let (left_indices, right_indices) = mode.indices(data.shape()[d], pad[d]);
+                let (left_indices, right_indices) =
+                    mode.indices(data.shape()[d], pad_left[d], pad_right[d]);
                 let mut buffer = Array1::zeros(output.shape()[d]);
                 Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
                     buffer.assign(&lane);
@@ -208,7 +213,7 @@ pub fn pad_to<S, A, D, Sh>(
         }
         PadAction::ByLane => {
             for d in 0..data.ndim() {
-                let start = pad[d];
+                let start = pad_left[d];
                 let end = start + data.shape()[d];
                 let mut buffer =
                     if mode.needs_buffer() { Array1::zeros(end - start) } else { Array1::zeros(0) };
@@ -221,7 +226,7 @@ pub fn pad_to<S, A, D, Sh>(
         }
         PadAction::BySides => {
             for d in 0..data.ndim() {
-                let start = pad[d];
+                let start = pad_left[d];
                 let end = start + data.shape()[d];
                 Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
                     let left = lane[start];
