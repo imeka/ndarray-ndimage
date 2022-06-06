@@ -51,11 +51,17 @@ impl<T: Copy> CorrelateMode<T> {
 /// * `data` - The input N-D data.
 /// * `weights` - 1-D sequence of numbers.
 /// * `axis` - The axis of input along which to calculate.
+/// * `mode` - Method that will be used to select the padded values. See the
+///   [`CorrelateMode`](crate::CorrelateMode) enum for more information.
+/// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
+///    centers the filter over the pixel, with positive values shifting the filter to the left, and
+///    negative ones to the right.
 pub fn correlate1d<S, A, D>(
     data: &ArrayBase<S, D>,
     weights: &ArrayBase<S, Ix1>,
     axis: Axis,
     mode: CorrelateMode<A>,
+    origin: isize,
 ) -> Array<A, D>
 where
     S: Data<Elem = A>,
@@ -67,19 +73,50 @@ where
         return data.to_owned() * weights[0];
     }
 
-    let weights = weights.as_slice_memory_order().unwrap();
+    #[allow(unused_assignments)]
+    let mut new_weights = Array1::zeros(0);
+    let weights = match weights.as_slice_memory_order() {
+        Some(s) => s,
+        None => {
+            new_weights = weights.to_owned();
+            new_weights.as_slice_memory_order().unwrap()
+        }
+    };
+    _correlate1d(data, weights, axis, mode, origin)
+}
+
+fn _correlate1d<S, A, D>(
+    data: &ArrayBase<S, D>,
+    weights: &[A],
+    axis: Axis,
+    mode: CorrelateMode<A>,
+    origin: isize,
+) -> Array<A, D>
+where
+    S: Data<Elem = A>,
+    // TODO Should be Num, not Float
+    A: Float + ScalarOperand + FromPrimitive,
+    D: Dimension,
+{
+    assert!(
+        origin >= -(weights.len() as isize) / 2 && origin <= (weights.len() as isize - 1) / 2,
+        "origin must satisfy: -(len(weights) / 2) <= origin <= (len(weights) - 1) / 2"
+    );
+
     let symmetry_state = symmetry_state(weights);
-    let filter_size = weights.len();
-    let size1 = filter_size / 2;
-    let size2 = 2 * size1;
+    let size1 = weights.len() / 2;
+    let size2 = weights.len() - size1 - 1;
+    let size_2 = 2 * size1;
 
     let mode = mode.to_pad_mode();
     let n = data.len_of(axis);
-    let mut buffer = Array1::from_elem(n + 2 * size1, mode.init());
+    let left_pad = (size1 as isize + origin) as usize;
+    let right_pad = (size2 as isize - origin) as usize;
+    let mut buffer = Array1::from_elem(n + left_pad + right_pad, mode.init());
 
     let mut output = data.to_owned();
     Zip::from(data.lanes(axis)).and(output.lanes_mut(axis)).for_each(|input, o| {
-        pad_to(&input, size1, mode, &mut buffer);
+        pad_to(&input, (left_pad, right_pad), mode, &mut buffer);
         let buffer = buffer.as_slice_memory_order().unwrap();
 
         match symmetry_state {
@@ -92,7 +129,7 @@ where
                 Zip::indexed(o).for_each(|i, o| {
                     let middle = buffer[size1 + i] * weights[size1];
                     let mut left = i;
-                    let mut right = i + size2;
+                    let mut right = i + size_2;
                     *o = weights[..size1].iter().fold(middle, |acc, &w| {
                         let ans = acc + (buffer[left] + buffer[right]) * w;
                         left += 1;
@@ -105,7 +142,7 @@ where
                 Zip::indexed(o).for_each(|i, o| {
                     let middle = buffer[size1 + i] * weights[size1];
                     let mut left = i;
-                    let mut right = i + size2;
+                    let mut right = i + size_2;
                     *o = weights[..size1].iter().fold(middle, |acc, &w| {
                         let ans = acc + (buffer[left] - buffer[right]) * w;
                         left += 1;
