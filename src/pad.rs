@@ -1,8 +1,7 @@
 //! This modules defines some image padding methods for 3D images.
 
 use ndarray::{
-    s, Array, Array1, ArrayBase, ArrayView1, Axis, AxisDescription, Data, Dimension, ShapeBuilder,
-    Slice, Zip,
+    s, Array, Array1, ArrayBase, ArrayView1, Axis, AxisDescription, Data, Dimension, Slice, Zip,
 };
 use ndarray_stats::QuantileExt;
 use num_traits::{FromPrimitive, Num, Zero};
@@ -143,16 +142,16 @@ enum PadAction {
 /// * `pad` - Number of values padded to the edges of each axis.
 /// * `mode` - Method that will be used to select the padded values. See the
 ///   [`PadMode`](crate::PadMode) enum for more information.
-pub fn pad<S, A, D, Sh>(data: &ArrayBase<S, D>, pad: (Sh, Sh), mode: PadMode<A>) -> Array<A, D>
+pub fn pad<S, A, D>(data: &ArrayBase<S, D>, pad: &[[usize; 2]], mode: PadMode<A>) -> Array<A, D>
 where
     S: Data<Elem = A>,
     A: Copy + FromPrimitive + Num + PartialOrd,
     D: Dimension,
-    Sh: ShapeBuilder<Dim = D> + Copy,
 {
-    let new_dim = data.raw_dim()
-        + pad.0.into_shape().raw_dim().clone()
-        + pad.1.into_shape().raw_dim().clone();
+    let mut new_dim = data.raw_dim();
+    for (ax, (&ax_len, &[pad_left, pad_right])) in data.shape().iter().zip(pad).enumerate() {
+        new_dim[ax] = ax_len + pad_left + pad_right;
+    }
     let mut padded = array_like(&data, new_dim, mode.init());
     pad_to(data, pad, mode, &mut padded);
     padded
@@ -167,27 +166,23 @@ where
 /// * `mode` - Method that will be used to select the padded values. See the
 ///   [`PadMode`](crate::PadMode) enum for more information.
 /// * `output` - An already allocated N-D array used to write the results.
-pub fn pad_to<S, A, D, Sh>(
+pub fn pad_to<S, A, D>(
     data: &ArrayBase<S, D>,
-    pad: (Sh, Sh),
+    pad: &[[usize; 2]],
     mode: PadMode<A>,
     output: &mut Array<A, D>,
 ) where
     S: Data<Elem = A>,
     A: Copy + FromPrimitive + Num + PartialOrd,
     D: Dimension,
-    Sh: ShapeBuilder<Dim = D>,
 {
-    let pad_left = pad.0.into_shape().raw_dim().clone();
-    let pad_right = pad.1.into_shape().raw_dim().clone();
-
     // Select portion of padded array that needs to be copied from the original array.
     output
         .view_mut()
         .slice_each_axis_mut(|ad| {
             let AxisDescription { axis, len, .. } = ad;
             let d = axis.index();
-            Slice::from(pad_left[d]..len - pad_right[d])
+            Slice::from(pad[d][0]..len - pad[d][1])
         })
         .assign(data);
 
@@ -195,10 +190,10 @@ pub fn pad_to<S, A, D, Sh>(
         PadAction::StopAfterCopy => { /* Nothing */ }
         PadAction::ByIndices => {
             for d in 0..data.ndim() {
-                let start = pad_left[d];
+                let start = pad[d][0];
                 let end = start + data.shape()[d];
                 let (left_indices, right_indices) =
-                    mode.indices(data.shape()[d], pad_left[d], pad_right[d]);
+                    mode.indices(data.shape()[d], pad[d][0], pad[d][1]);
                 let mut buffer = Array1::zeros(output.shape()[d]);
                 Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
                     buffer.assign(&lane);
@@ -213,7 +208,7 @@ pub fn pad_to<S, A, D, Sh>(
         }
         PadAction::ByLane => {
             for d in 0..data.ndim() {
-                let start = pad_left[d];
+                let start = pad[d][0];
                 let end = start + data.shape()[d];
                 let mut buffer =
                     if mode.needs_buffer() { Array1::zeros(end - start) } else { Array1::zeros(0) };
@@ -226,7 +221,7 @@ pub fn pad_to<S, A, D, Sh>(
         }
         PadAction::BySides => {
             for d in 0..data.ndim() {
-                let start = pad_left[d];
+                let start = pad[d][0];
                 let end = start + data.shape()[d];
                 Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
                     let left = lane[start];

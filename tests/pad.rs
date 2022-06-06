@@ -18,12 +18,12 @@ fn simple_data_3d() -> Array3<f64> {
 #[test] // Results verified with the `pad(mode='maximum')` function from NumPy. (v1.21.4)
 fn test_pad_minmax() {
     let data = simple_data_1d();
-    assert_eq!(pad(&data, (2, 2), PadMode::Maximum), arr1(&[3, 3, 0, 1, 2, 3, 3, 3]));
-    assert_eq!(pad(&data, (2, 2), PadMode::Minimum), arr1(&[0, 0, 0, 1, 2, 3, 0, 0]));
+    assert_eq!(pad(&data, &[[2, 2]], PadMode::Maximum), arr1(&[3, 3, 0, 1, 2, 3, 3, 3]));
+    assert_eq!(pad(&data, &[[2, 2]], PadMode::Minimum), arr1(&[0, 0, 0, 1, 2, 3, 0, 0]));
 
     let data = simple_data_2d();
     assert_relative_eq!(
-        pad(&data, ((1, 2), (1, 2)), PadMode::Maximum),
+        pad(&data, &[[1, 1], [2, 2]], PadMode::Maximum),
         arr2(&[
             [11.0, 11.0, 8.0, 9.0, 10.0, 11.0, 11.0, 11.0],
             [3.0, 3.0, 0.0, 1.0, 2.0, 3.0, 3.0, 3.0],
@@ -33,7 +33,7 @@ fn test_pad_minmax() {
         ])
     );
     assert_relative_eq!(
-        pad(&data, ((1, 2), (1, 2)), PadMode::Minimum),
+        pad(&data, &[[1, 1], [2, 2]], PadMode::Minimum),
         arr2(&[
             [0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 0.0, 0.0],
@@ -45,7 +45,7 @@ fn test_pad_minmax() {
 
     let data = simple_data_3d();
     assert_relative_eq!(
-        pad(&data.view(), ((0, 1, 2), (0, 1, 2)), PadMode::Maximum),
+        pad(&data.view(), &[[0, 0], [1, 1], [2, 2]], PadMode::Maximum),
         arr3(&[
             [
                 [11.0, 11.0, 8.0, 9.0, 10.0, 11.0, 11.0, 11.0],
@@ -64,7 +64,7 @@ fn test_pad_minmax() {
         ])
     );
     assert_relative_eq!(
-        pad(&data.view(), ((0, 1, 2), (0, 1, 2)), PadMode::Minimum),
+        pad(&data.view(), &[[0, 0], [1, 1], [2, 2]], PadMode::Minimum),
         arr3(&[
             [
                 [0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 0.0, 0.0],
@@ -87,12 +87,12 @@ fn test_pad_minmax() {
 #[test] // Results verified with the `pad(mode='mean')` function from NumPy. (v1.21.4)
 fn test_pad_mean() {
     let data = simple_data_1d();
-    assert_eq!(pad(&data, (2, 2), PadMode::Mean), arr1(&[1, 1, 0, 1, 2, 3, 1, 1]));
-    assert_eq!(pad(&arr1(&[1, 2, 3]), (2, 2), PadMode::Mean), arr1(&[2, 2, 1, 2, 3, 2, 2]));
+    assert_eq!(pad(&data, &[[2, 2]], PadMode::Mean), arr1(&[1, 1, 0, 1, 2, 3, 1, 1]));
+    assert_eq!(pad(&arr1(&[1, 2, 3]), &[[2, 2]], PadMode::Mean), arr1(&[2, 2, 1, 2, 3, 2, 2]));
 
     let data = simple_data_2d();
     assert_relative_eq!(
-        pad(&data, ((1, 2), (1, 2)), PadMode::Mean),
+        pad(&data, &[[1, 1], [2, 2]], PadMode::Mean),
         arr2(&[
             [5.5, 5.5, 4.0, 5.0, 6.0, 7.0, 5.5, 5.5],
             [1.5, 1.5, 0.0, 1.0, 2.0, 3.0, 1.5, 1.5],
@@ -104,7 +104,7 @@ fn test_pad_mean() {
 
     let data = simple_data_3d();
     assert_relative_eq!(
-        pad(&data.view(), ((0, 1, 2), (0, 1, 2)), PadMode::Mean),
+        pad(&data.view(), &[[0, 0], [1, 1], [2, 2]], PadMode::Mean),
         arr3(&[
             [
                 [5.5, 5.5, 4.0, 5.0, 6.0, 7.0, 5.5, 5.5],
@@ -127,12 +127,12 @@ fn test_pad_mean() {
 #[test] // Results verified with the `pad(mode='median')` function from NumPy. (v1.21.4)
 fn test_pad_median() {
     let data = simple_data_1d();
-    assert_eq!(pad(&data, (2, 2), PadMode::Median), arr1(&[1, 1, 0, 1, 2, 3, 1, 1]));
-    assert_eq!(pad(&arr1(&[1, 2, 3]), (2, 2), PadMode::Median), arr1(&[2, 2, 1, 2, 3, 2, 2]));
+    assert_eq!(pad(&data, &[[2, 2]], PadMode::Median), arr1(&[1, 1, 0, 1, 2, 3, 1, 1]));
+    assert_eq!(pad(&arr1(&[1, 2, 3]), &[[2, 2]], PadMode::Median), arr1(&[2, 2, 1, 2, 3, 2, 2]));
 
     let data = simple_data_2d();
     assert_relative_eq!(
-        pad(&data, ((1, 2), (1, 2)), PadMode::Median),
+        pad(&data, &[[1, 1], [2, 2]], PadMode::Median),
         arr2(&[
             [5.5, 5.5, 4.0, 5.0, 6.0, 7.0, 5.5, 5.5],
             [1.5, 1.5, 0.0, 1.0, 2.0, 3.0, 1.5, 1.5],
@@ -144,7 +144,7 @@ fn test_pad_median() {
 
     let data = simple_data_3d();
     assert_relative_eq!(
-        pad(&data.view(), ((0, 1, 2), (0, 1, 2)), PadMode::Median),
+        pad(&data.view(), &[[0, 0], [1, 1], [2, 2]], PadMode::Median),
         arr3(&[
             [
                 [5.5, 5.5, 4.0, 5.0, 6.0, 7.0, 5.5, 5.5],
@@ -167,12 +167,12 @@ fn test_pad_median() {
 #[test] // Results verified with the `pad(mode='reflect')` function from NumPy. (v1.21.4)
 fn test_pad_reflect() {
     let data = simple_data_1d();
-    assert_eq!(pad(&data, (1, 1), PadMode::Reflect), arr1(&[1, 0, 1, 2, 3, 2]));
-    assert_eq!(pad(&data, (2, 2), PadMode::Reflect), arr1(&[2, 1, 0, 1, 2, 3, 2, 1]));
+    assert_eq!(pad(&data, &[[1, 1]], PadMode::Reflect), arr1(&[1, 0, 1, 2, 3, 2]));
+    assert_eq!(pad(&data, &[[2, 2]], PadMode::Reflect), arr1(&[2, 1, 0, 1, 2, 3, 2, 1]));
 
     let data = simple_data_2d();
     assert_relative_eq!(
-        pad(&data, ((1, 1), (1, 1)), PadMode::Reflect),
+        pad(&data, &[[1, 1], [1, 1],], PadMode::Reflect),
         arr2(&[
             [5.0, 4.0, 5.0, 6.0, 7.0, 6.0],
             [1.0, 0.0, 1.0, 2.0, 3.0, 2.0],
@@ -182,7 +182,7 @@ fn test_pad_reflect() {
         ])
     );
     assert_relative_eq!(
-        pad(&data, ((1, 2), (1, 2)), PadMode::Reflect),
+        pad(&data, &[[1, 1], [2, 2]], PadMode::Reflect),
         arr2(&[
             [6.0, 5.0, 4.0, 5.0, 6.0, 7.0, 6.0, 5.0],
             [2.0, 1.0, 0.0, 1.0, 2.0, 3.0, 2.0, 1.0],
@@ -194,7 +194,7 @@ fn test_pad_reflect() {
 
     let data = simple_data_3d();
     assert_relative_eq!(
-        pad(&data, ((1, 1, 1), (1, 1, 1)), PadMode::Reflect),
+        pad(&data, &[[1, 1], [1, 1], [1, 1]], PadMode::Reflect),
         arr3(&[
             [
                 [17.0, 16.0, 17.0, 18.0, 19.0, 18.0],
@@ -227,7 +227,7 @@ fn test_pad_reflect() {
         ])
     );
     assert_relative_eq!(
-        pad(&data.view(), ((0, 1, 2), (0, 1, 2)), PadMode::Reflect),
+        pad(&data.view(), &[[0, 0], [1, 1], [2, 2]], PadMode::Reflect),
         arr3(&[
             [
                 [6.0, 5.0, 4.0, 5.0, 6.0, 7.0, 6.0, 5.0],
@@ -250,12 +250,12 @@ fn test_pad_reflect() {
 #[test] // Results verified with the `pad(mode='symmetric')` function from NumPy. (v1.21.4)
 fn test_pad_symmetric() {
     let data = simple_data_1d();
-    assert_eq!(pad(&data, (1, 1), PadMode::Symmetric), arr1(&[0, 0, 1, 2, 3, 3]));
-    assert_eq!(pad(&data, (2, 2), PadMode::Symmetric), arr1(&[1, 0, 0, 1, 2, 3, 3, 2]));
+    assert_eq!(pad(&data, &[[1, 1]], PadMode::Symmetric), arr1(&[0, 0, 1, 2, 3, 3]));
+    assert_eq!(pad(&data, &[[2, 2]], PadMode::Symmetric), arr1(&[1, 0, 0, 1, 2, 3, 3, 2]));
 
     let data = simple_data_2d();
     assert_relative_eq!(
-        pad(&data, ((1, 1), (1, 1)), PadMode::Symmetric),
+        pad(&data, &[[1, 1], [1, 1],], PadMode::Symmetric),
         arr2(&[
             [0.0, 0.0, 1.0, 2.0, 3.0, 3.0],
             [0.0, 0.0, 1.0, 2.0, 3.0, 3.0],
@@ -265,7 +265,7 @@ fn test_pad_symmetric() {
         ])
     );
     assert_relative_eq!(
-        pad(&data, ((1, 2), (1, 2)), PadMode::Symmetric),
+        pad(&data, &[[1, 1], [2, 2]], PadMode::Symmetric),
         arr2(&[
             [1.0, 0.0, 0.0, 1.0, 2.0, 3.0, 3.0, 2.0],
             [1.0, 0.0, 0.0, 1.0, 2.0, 3.0, 3.0, 2.0],
@@ -277,7 +277,7 @@ fn test_pad_symmetric() {
 
     let data = simple_data_3d();
     assert_relative_eq!(
-        pad(&data, ((1, 1, 1), (1, 1, 1)), PadMode::Symmetric),
+        pad(&data, &[[1, 1], [1, 1], [1, 1]], PadMode::Symmetric),
         arr3(&[
             [
                 [0.0, 0.0, 1.0, 2.0, 3.0, 3.0],
@@ -310,7 +310,7 @@ fn test_pad_symmetric() {
         ])
     );
     assert_relative_eq!(
-        pad(&data, ((0, 1, 2), (0, 1, 2)), PadMode::Symmetric),
+        pad(&data, &[[0, 0], [1, 1], [2, 2]], PadMode::Symmetric),
         arr3(&[
             [
                 [1.0, 0.0, 0.0, 1.0, 2.0, 3.0, 3.0, 2.0],
@@ -333,12 +333,12 @@ fn test_pad_symmetric() {
 #[test] // Results verified with the `pad(mode='wrap')` function from NumPy. (v1.21.4)
 fn test_pad_wrap() {
     let data = simple_data_1d();
-    assert_eq!(pad(&data, (1, 1), PadMode::Wrap), arr1(&[3, 0, 1, 2, 3, 0]));
-    assert_eq!(pad(&data, (2, 2), PadMode::Wrap), arr1(&[2, 3, 0, 1, 2, 3, 0, 1]));
+    assert_eq!(pad(&data, &[[1, 1]], PadMode::Wrap), arr1(&[3, 0, 1, 2, 3, 0]));
+    assert_eq!(pad(&data, &[[2, 2]], PadMode::Wrap), arr1(&[2, 3, 0, 1, 2, 3, 0, 1]));
 
     let data = simple_data_2d();
     assert_relative_eq!(
-        pad(&data, ((1, 1), (1, 1)), PadMode::Wrap),
+        pad(&data, &[[1, 1], [1, 1],], PadMode::Wrap),
         arr2(&[
             [11.0, 8.0, 9.0, 10.0, 11.0, 8.0],
             [3.0, 0.0, 1.0, 2.0, 3.0, 0.0],
@@ -348,7 +348,7 @@ fn test_pad_wrap() {
         ])
     );
     assert_relative_eq!(
-        pad(&data, ((1, 2), (1, 2)), PadMode::Wrap),
+        pad(&data, &[[1, 1], [2, 2]], PadMode::Wrap),
         arr2(&[
             [10.0, 11.0, 8.0, 9.0, 10.0, 11.0, 8.0, 9.0],
             [2.0, 3.0, 0.0, 1.0, 2.0, 3.0, 0.0, 1.0],
@@ -360,7 +360,7 @@ fn test_pad_wrap() {
 
     let data = simple_data_3d();
     assert_relative_eq!(
-        pad(&data, ((1, 1, 1), (1, 1, 1)), PadMode::Wrap),
+        pad(&data, &[[1, 1], [1, 1], [1, 1]], PadMode::Wrap),
         arr3(&[
             [
                 [23.0, 20.0, 21.0, 22.0, 23.0, 20.0],
@@ -393,7 +393,7 @@ fn test_pad_wrap() {
         ])
     );
     assert_relative_eq!(
-        pad(&data, ((0, 1, 2), (0, 1, 2)), PadMode::Wrap),
+        pad(&data, &[[0, 0], [1, 1], [2, 2]], PadMode::Wrap),
         arr3(&[
             [
                 [10.0, 11.0, 8.0, 9.0, 10.0, 11.0, 8.0, 9.0],
@@ -416,11 +416,11 @@ fn test_pad_wrap() {
 #[test] // Results verified with the `pad(mode='median')` function from NumPy. (v1.21.4)
 fn test_pad_edge() {
     let data = simple_data_1d();
-    assert_eq!(pad(&data, (2, 2), PadMode::Edge), arr1(&[0, 0, 0, 1, 2, 3, 3, 3]));
+    assert_eq!(pad(&data, &[[2, 2]], PadMode::Edge), arr1(&[0, 0, 0, 1, 2, 3, 3, 3]));
 
     let data = simple_data_2d();
     assert_relative_eq!(
-        pad(&data, ((1, 2), (1, 2)), PadMode::Edge),
+        pad(&data, &[[1, 1], [2, 2]], PadMode::Edge),
         arr2(&[
             [0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 3.0, 3.0],
             [0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 3.0, 3.0],
@@ -432,7 +432,7 @@ fn test_pad_edge() {
 
     let data = simple_data_3d();
     assert_relative_eq!(
-        pad(&data.view(), ((0, 1, 2), (0, 1, 2)), PadMode::Edge),
+        pad(&data.view(), &[[0, 0], [1, 1], [2, 2]], PadMode::Edge),
         arr3(&[
             [
                 [0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 3.0, 3.0],

@@ -110,13 +110,12 @@ where
 
     let mode = mode.to_pad_mode();
     let n = data.len_of(axis);
-    let left_pad = (size1 as isize + origin) as usize;
-    let right_pad = (size2 as isize - origin) as usize;
-    let mut buffer = Array1::from_elem(n + left_pad + right_pad, mode.init());
+    let pad = vec![[(size1 as isize + origin) as usize, (size2 as isize - origin) as usize]];
+    let mut buffer = Array1::from_elem(n + pad[0][0] + pad[0][1], mode.init());
 
     let mut output = data.to_owned();
     Zip::from(data.lanes(axis)).and(output.lanes_mut(axis)).for_each(|input, o| {
-        pad_to(&input, (left_pad, right_pad), mode, &mut buffer);
+        pad_to(&input, &pad, mode, &mut buffer);
         let buffer = buffer.as_slice_memory_order().unwrap();
 
         match symmetry_state {
