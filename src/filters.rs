@@ -44,19 +44,6 @@ impl<T: Copy> CorrelateMode<T> {
     }
 }
 
-/*pub fn correlate<S, A, D>(
-    data: &ArrayBase<S, D>,
-    weights: &ArrayBase<S, D>,
-    axis: Axis,
-) -> Array<A, D>
-where
-    S: Data<Elem = A>,
-    A: Float + ToPrimitive,
-    D: Dimension,
-{
-    //
-}*/
-
 /// Calculate a 1-D correlation along the given axis.
 ///
 /// The lines of the array along the given axis are correlated with the given weights.
@@ -73,7 +60,7 @@ pub fn correlate1d<S, A, D>(
 where
     S: Data<Elem = A>,
     // TODO Should be Num, not Float
-    A: Float + ScalarOperand + FromPrimitive + std::fmt::Debug,
+    A: Float + ScalarOperand + FromPrimitive,
     D: Dimension,
 {
     if weights.len() == 1 {
