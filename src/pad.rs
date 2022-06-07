@@ -148,10 +148,21 @@ where
     A: Copy + FromPrimitive + Num + PartialOrd,
     D: Dimension,
 {
+    #[allow(unused_assignments)]
+    let mut full_pad = vec![];
+    let pad = if pad.len() == 1 && pad.len() < data.ndim() {
+        // The user provided a single padding for all dimensions
+        full_pad = vec![pad[0]; data.ndim()];
+        full_pad.as_slice()
+    } else {
+        pad
+    };
+
     let mut new_dim = data.raw_dim();
     for (ax, (&ax_len, &[pad_left, pad_right])) in data.shape().iter().zip(pad).enumerate() {
         new_dim[ax] = ax_len + pad_left + pad_right;
     }
+
     let mut padded = array_like(&data, new_dim, mode.init());
     pad_to(data, pad, mode, &mut padded);
     padded
