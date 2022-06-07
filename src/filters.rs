@@ -44,6 +44,41 @@ impl<T: Copy> CorrelateMode<T> {
     }
 }
 
+/// Calculate a 1-D convolution along the given axis.
+///
+/// The lines of the array along the given axis are convolved with the given weights.
+///
+/// * `data` - The input N-D data.
+/// * `weights` - 1-D sequence of numbers.
+/// * `axis` - The axis of input along which to calculate.
+/// * `mode` - The mode parameter determines how the input array is extended beyond its boundaries.
+/// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
+///    centers the filter over the pixel, with positive values shifting the filter to the left, and
+///    negative ones to the right.
+pub fn convolve1d<S, A, D>(
+    data: &ArrayBase<S, D>,
+    weights: &ArrayBase<S, Ix1>,
+    axis: Axis,
+    mode: CorrelateMode<A>,
+    mut origin: isize,
+) -> Array<A, D>
+where
+    S: Data<Elem = A>,
+    // TODO Should be Num, not Float
+    A: Float + ScalarOperand + FromPrimitive,
+    D: Dimension,
+{
+    if weights.len() == 1 {
+        return data.to_owned() * weights[0];
+    }
+
+    let weights = Zip::from(weights.slice(s![..; -1])).map_collect(|&w| w);
+    if weights.len() % 2 == 0 {
+        origin -= 1;
+    }
+    _correlate1d(data, weights.as_slice().unwrap(), axis, mode, origin)
+}
+
 /// Calculate a 1-D correlation along the given axis.
 ///
 /// The lines of the array along the given axis are correlated with the given weights.
