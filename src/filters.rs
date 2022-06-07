@@ -68,6 +68,9 @@ where
     A: Float + ScalarOperand + FromPrimitive,
     D: Dimension,
 {
+    if weights.is_empty() {
+        panic!("No filter weights given");
+    }
     if weights.len() == 1 {
         return data.to_owned() * weights[0];
     }
@@ -104,6 +107,9 @@ where
     A: Float + ScalarOperand + FromPrimitive,
     D: Dimension,
 {
+    if weights.is_empty() {
+        panic!("No filter weights given");
+    }
     if weights.len() == 1 {
         return data.to_owned() * weights[0];
     }
