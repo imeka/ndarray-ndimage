@@ -1,5 +1,7 @@
 //! This modules defines some image padding methods for 3D images.
 
+use std::borrow::Cow;
+
 use ndarray::{
     s, Array, Array1, ArrayBase, ArrayView1, Axis, AxisDescription, Data, Dimension, Slice, Zip,
 };
@@ -148,23 +150,19 @@ where
     A: Copy + FromPrimitive + Num + PartialOrd,
     D: Dimension,
 {
-    #[allow(unused_assignments)]
-    let mut full_pad = vec![];
-    let pad = if pad.len() == 1 && pad.len() < data.ndim() {
+    let mut pad = Cow::from(pad);
+    if pad.len() == 1 && pad.len() < data.ndim() {
         // The user provided a single padding for all dimensions
-        full_pad = vec![pad[0]; data.ndim()];
-        full_pad.as_slice()
-    } else {
-        pad
-    };
+        *pad.to_mut() = vec![pad[0]; data.ndim()];
+    }
 
     let mut new_dim = data.raw_dim();
-    for (ax, (&ax_len, &[pad_left, pad_right])) in data.shape().iter().zip(pad).enumerate() {
-        new_dim[ax] = ax_len + pad_left + pad_right;
+    for (ax, (&ax_len, pad)) in data.shape().iter().zip(pad.iter()).enumerate() {
+        new_dim[ax] = ax_len + pad[0] + pad[1];
     }
 
     let mut padded = array_like(&data, new_dim, mode.init());
-    pad_to(data, pad, mode, &mut padded);
+    pad_to(data, &pad, mode, &mut padded);
     padded
 }
 
@@ -187,6 +185,12 @@ pub fn pad_to<S, A, D>(
     A: Copy + FromPrimitive + Num + PartialOrd,
     D: Dimension,
 {
+    let mut pad = Cow::from(pad);
+    if pad.len() == 1 && pad.len() < data.ndim() {
+        // The user provided a single padding for all dimensions
+        *pad.to_mut() = vec![pad[0]; data.ndim()];
+    }
+
     // Select portion of padded array that needs to be copied from the original array.
     output
         .view_mut()
@@ -201,10 +205,10 @@ pub fn pad_to<S, A, D>(
         PadAction::StopAfterCopy => { /* Nothing */ }
         PadAction::ByIndices => {
             for d in 0..data.ndim() {
-                let start = pad[d][0];
+                let pad = pad[d];
+                let start = pad[0];
                 let end = start + data.shape()[d];
-                let (left_indices, right_indices) =
-                    mode.indices(data.shape()[d], pad[d][0], pad[d][1]);
+                let (left_indices, right_indices) = mode.indices(data.shape()[d], pad[0], pad[1]);
                 let mut buffer = Array1::zeros(output.shape()[d]);
                 Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
                     buffer.assign(&lane);

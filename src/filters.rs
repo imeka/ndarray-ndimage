@@ -114,16 +114,13 @@ where
         return data.to_owned() * weights[0];
     }
 
-    #[allow(unused_assignments)]
-    let mut new_weights = Array1::zeros(0);
-    let weights = match weights.as_slice_memory_order() {
-        Some(s) => s,
+    match weights.as_slice_memory_order() {
+        Some(s) => _correlate1d(data, s, axis, mode, origin),
         None => {
-            new_weights = weights.to_owned();
-            new_weights.as_slice_memory_order().unwrap()
+            let weights = weights.to_owned();
+            _correlate1d(data, weights.as_slice_memory_order().unwrap(), axis, mode, origin)
         }
-    };
-    _correlate1d(data, weights, axis, mode, origin)
+    }
 }
 
 fn _correlate1d<S, A, D>(
