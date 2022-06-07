@@ -1,7 +1,100 @@
 use approx::assert_relative_eq;
 use ndarray::{arr1, arr2, s, Array1, Axis};
 
-use ndarray_ndimage::{correlate1d, gaussian_filter, median_filter, CorrelateMode, Mask};
+use ndarray_ndimage::{
+    convolve1d, correlate1d, gaussian_filter, median_filter, CorrelateMode, Mask,
+};
+
+#[test] // Results verified with SciPy. (v1.9.0)
+fn test_convolve1d() {
+    let arr = arr1(&[2.0, 8.0, 0.0, 4.0, 1.0, 9.0, 9.0, 0.0]);
+    let arr_odd = arr1(&[2.0, 8.0, 0.0, 4.0, 9.0, 9.0, 0.0]);
+    let matrix = arr2(&[
+        [1.5, 2.3, 0.7, 1.1, 6.0, 1.7],
+        [0.5, 1.3, 0.0, 0.1, 1.2, 0.7],
+        [0.4, 1.3, 2.7, 0.1, 0.8, 0.1],
+        [2.1, 0.1, 0.7, 0.1, 1.0, 2.8],
+        [5.7, 4.0, 1.8, 9.1, 4.8, 2.7],
+    ]);
+
+    assert_eq!(
+        convolve1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), CorrelateMode::Reflect, 0),
+        arr1(&[14.0, 24.0, 4.0, 13.0, 12.0, 36.0, 27.0, 0.0])
+    );
+    assert_eq!(
+        convolve1d(&arr, &arr1(&[1.0, 3.0, 2.0]), Axis(0), CorrelateMode::Reflect, 0),
+        arr1(&[18.0, 28.0, 20.0, 13.0, 20.0, 38.0, 45.0, 18.0])
+    );
+    assert_eq!(
+        convolve1d(&arr, &arr1(&[1.0, 2.0, 0.5, 2.0]), Axis(0), CorrelateMode::Reflect, 0),
+        arr1(&[21.0, 12.0, 25.0, 13.0, 35.5, 24.5, 22.5, 27.0])
+    );
+
+    // Symmetric
+    assert_eq!(
+        convolve1d(&arr, &arr1(&[0.5, 1.5, 0.5]), Axis(0), CorrelateMode::Reflect, 0),
+        arr1(&[8.0, 13.0, 6.0, 6.5, 8.0, 18.5, 18.0, 4.5])
+    );
+
+    // Anti-symmetric
+    assert_eq!(
+        convolve1d(&arr, &arr1(&[0.5, 1.5, 1.0, -1.5, -0.5]), Axis(0), CorrelateMode::Reflect, 0),
+        arr1(&[7.0, 6.0, -6.5, 6.0, 13.0, 19.0, -5.0, -13.5])
+    );
+
+    // Other modes and dimensions
+    assert_relative_eq!(
+        convolve1d(
+            &arr_odd,
+            &arr1(&[1.0, 2.0, 0.5, 2.0]),
+            Axis(0),
+            CorrelateMode::Constant(0.5),
+            0
+        ),
+        arr1(&[18.0, 12.0, 33.0, 29.0, 30.5, 23.0, 19.5]),
+        epsilon = 1e-7,
+    );
+    assert_relative_eq!(
+        convolve1d(&arr_odd, &arr1(&[1.0, 3.0, 2.0]), Axis(0), CorrelateMode::Nearest, 0),
+        arr1(&[18.0, 28.0, 20.0, 21.0, 44.0, 45.0, 18.0]),
+        epsilon = 1e-7,
+    );
+    assert_relative_eq!(
+        convolve1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), CorrelateMode::Mirror, 0),
+        arr2(&[
+            [6.8, 7.6, 3.2, 9.3, 19.7, 11.1],
+            [2.8, 3.9, 0.1, 1.5, 4.3, 3.3],
+            [2.5, 6.6, 8.2, 1.1, 2.5, 1.1],
+            [6.4, 1., 2.2, 1.3, 5.8, 9.4],
+            [21.1, 13.8, 14.5, 32.1, 17.1, 12.9]
+        ]),
+        epsilon = 1e-7,
+    );
+    assert_relative_eq!(
+        convolve1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), CorrelateMode::Reflect, 0),
+        arr2(&[
+            [6.8, 7.6, 3.2, 9.3, 19.7, 6.8],
+            [2.8, 3.9, 0.1, 1.5, 4.3, 2.8],
+            [2.5, 6.6, 8.2, 1.1, 2.5, 0.4],
+            [6.4, 1.0, 2.2, 1.3, 5.8, 11.2],
+            [21.1, 13.8, 14.5, 32.1, 17.1, 10.8]
+        ]),
+        epsilon = 1e-7,
+    );
+    assert_relative_eq!(
+        convolve1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), CorrelateMode::Wrap, 0),
+        arr2(&[
+            [6.8, 7.6, 3.2, 9.3, 19.7, 6.6],
+            [2.8, 3.9, 0.1, 1.5, 4.3, 2.6],
+            [2.5, 6.6, 8.2, 1.1, 2.5, 0.7],
+            [6.4, 1.0, 2.2, 1.3, 5.8, 10.5],
+            [21.1, 13.8, 14.5, 32.1, 17.1, 13.8]
+        ]),
+        epsilon = 1e-7,
+    );
+
+    // Do not test "origin != 0", it's only useful to test in correlate
+}
 
 #[test] // Results verified with SciPy. (v1.9.0)
 fn test_correlate1d() {
