@@ -150,12 +150,7 @@ where
     A: Copy + FromPrimitive + Num + PartialOrd,
     D: Dimension,
 {
-    let mut pad = Cow::from(pad);
-    if pad.len() == 1 && pad.len() < data.ndim() {
-        // The user provided a single padding for all dimensions
-        *pad.to_mut() = vec![pad[0]; data.ndim()];
-    }
-
+    let pad = read_pad(data.ndim(), pad);
     let mut new_dim = data.raw_dim();
     for (ax, (&ax_len, pad)) in data.shape().iter().zip(pad.iter()).enumerate() {
         new_dim[ax] = ax_len + pad[0] + pad[1];
@@ -185,11 +180,7 @@ pub fn pad_to<S, A, D>(
     A: Copy + FromPrimitive + Num + PartialOrd,
     D: Dimension,
 {
-    let mut pad = Cow::from(pad);
-    if pad.len() == 1 && pad.len() < data.ndim() {
-        // The user provided a single padding for all dimensions
-        *pad.to_mut() = vec![pad[0]; data.ndim()];
-    }
+    let pad = read_pad(data.ndim(), pad);
 
     // Select portion of padded array that needs to be copied from the original array.
     output
@@ -246,5 +237,16 @@ pub fn pad_to<S, A, D>(
                 });
             }
         }
+    }
+}
+
+fn read_pad(nb_dim: usize, pad: &[[usize; 2]]) -> Cow<[[usize; 2]]> {
+    if pad.len() == 1 && pad.len() < nb_dim {
+        // The user provided a single padding for all dimensions
+        Cow::from(vec![pad[0]; nb_dim])
+    } else if pad.len() == nb_dim {
+        Cow::from(pad)
+    } else {
+        panic!("Inconsistant number of dimensions and pad arrays");
     }
 }
