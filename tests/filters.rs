@@ -2,7 +2,7 @@ use approx::assert_relative_eq;
 use ndarray::{arr1, arr2, s, Array1, Axis};
 
 use ndarray_ndimage::{
-    convolve1d, correlate1d, gaussian_filter, median_filter, CorrelateMode, Mask,
+    convolve1d, correlate, correlate1d, gaussian_filter, median_filter, CorrelateMode, Mask,
 };
 
 #[test] // Results verified with SciPy. (v1.9.0)
@@ -279,6 +279,77 @@ fn test_correlate1d() {
     assert_eq!(
         correlate1d(&arr, &arr1(&[1.0, 0.5, 1.0, 1.5]), Axis(0), CorrelateMode::Reflect, 1),
         arr1(&[9.0, 23.0, 11.0, 12.0, 13.5, 16.5, 27.0, 14.5])
+    );
+}
+
+#[test] // Results verified with SciPy. (v1.9.0)
+fn test_correlate() {
+    let a: Array1<usize> = (0..25).collect();
+    let a = a.into_shape((5, 5)).unwrap();
+
+    let weight = arr2(&[[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
+    assert_eq!(
+        correlate(&a, &weight, CorrelateMode::Constant(2)),
+        arr2(&[
+            [8, 10, 12, 14, 8],
+            [18, 18, 21, 24, 14],
+            [28, 33, 36, 39, 24],
+            [38, 48, 51, 54, 34],
+            [24, 38, 40, 42, 44]
+        ])
+    );
+    assert_eq!(
+        correlate(&a, &weight, CorrelateMode::Nearest),
+        arr2(&[
+            [6, 8, 11, 14, 16],
+            [16, 18, 21, 24, 26],
+            [31, 33, 36, 39, 41],
+            [46, 48, 51, 54, 56],
+            [56, 58, 61, 64, 66]
+        ])
+    );
+    assert_eq!(
+        correlate(&a, &weight, CorrelateMode::Mirror),
+        arr2(&[
+            [12, 13, 16, 19, 20],
+            [17, 18, 21, 24, 25],
+            [32, 33, 36, 39, 40],
+            [47, 48, 51, 54, 55],
+            [52, 53, 56, 59, 60]
+        ])
+    );
+    assert_eq!(
+        correlate(&a, &weight, CorrelateMode::Reflect),
+        arr2(&[
+            [6, 8, 11, 14, 16],
+            [16, 18, 21, 24, 26],
+            [31, 33, 36, 39, 41],
+            [46, 48, 51, 54, 56],
+            [56, 58, 61, 64, 66]
+        ])
+    );
+    assert_eq!(
+        correlate(&a, &weight, CorrelateMode::Wrap),
+        arr2(&[
+            [30, 28, 31, 34, 32],
+            [20, 18, 21, 24, 22],
+            [35, 33, 36, 39, 37],
+            [50, 48, 51, 54, 52],
+            [40, 38, 41, 44, 42]
+        ])
+    );
+
+    let weight = arr2(&[[0.0, 0.1, 0.0], [0.1, 0.9, 0.1], [0.0, 0.1, 0.0]]);
+    assert_relative_eq!(
+        correlate(&a.mapv(|v| v as f32), &weight, CorrelateMode::Reflect),
+        arr2(&[
+            [0.6, 1.8, 3.1, 4.4, 5.6],
+            [6.6, 7.8, 9.1, 10.4, 11.6],
+            [13.1, 14.3, 15.6, 16.9, 18.1],
+            [19.6, 20.8, 22.1, 23.4, 24.6],
+            [25.6, 26.8, 28.1, 29.4, 30.6]
+        ]),
+        epsilon = 1e-5
     );
 }
 
