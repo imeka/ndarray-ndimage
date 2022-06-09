@@ -227,12 +227,56 @@ where
     state
 }
 
+/// Multidimensional convolution.
+///
+/// The array is convolved with the given kernel.
+///
+/// * `data` - The input N-D data.
+/// * `weights` - Array of weights, same number of dimensions as `data`.
+/// * `mode` - Method that will be used to select the padded values. See the
+///   [`CorrelateMode`](crate::CorrelateMode) enum for more information.
+/// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
+///    centers the filter over the pixel, with positive values shifting the filter to the left, and
+///    negative ones to the right.
+pub fn convolve<S, A, D>(
+    data: &ArrayBase<S, D>,
+    weights: &ArrayBase<S, D>,
+    mode: CorrelateMode<A>,
+    mut origin: isize,
+) -> Array<A, D>
+where
+    S: Data<Elem = A>,
+    A: Copy + Num + FromPrimitive + PartialOrd,
+    D: Dimension,
+{
+    if weights.is_empty() {
+        panic!("No filter weights given");
+    }
+
+    let rev_weights;
+    let s = match weights.as_slice() {
+        Some(s) => s,
+        None => {
+            rev_weights = weights.to_owned();
+            rev_weights.as_slice().unwrap()
+        }
+    };
+    let rev_weights: Array1<_> = s.iter().rev().cloned().collect();
+    let rev_weights = rev_weights.into_shape(weights.dim()).unwrap();
+
+    origin = -origin;
+    if weights.len() % 2 == 0 {
+        origin -= 1;
+    }
+    _correlate(data, rev_weights, mode, origin)
+}
+
 /// Multidimensional correlation.
 ///
 /// The array is correlated with the given kernel.
 ///
 /// * `data` - The input N-D data.
-/// * `weights` - 1-D sequence of numbers.
+/// * `weights` - Array of weights, same number of dimensions as `data`.
 /// * `mode` - Method that will be used to select the padded values. See the
 ///   [`CorrelateMode`](crate::CorrelateMode) enum for more information.
 /// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
@@ -241,6 +285,21 @@ where
 pub fn correlate<S, A, D>(
     data: &ArrayBase<S, D>,
     weights: &ArrayBase<S, D>,
+    mode: CorrelateMode<A>,
+    origin: isize,
+) -> Array<A, D>
+where
+    S: Data<Elem = A>,
+    A: Copy + Num + FromPrimitive + PartialOrd,
+    D: Dimension,
+{
+    // TODO Any way to not allocate weights for nothing?
+    _correlate(data, weights.to_owned(), mode, origin)
+}
+
+fn _correlate<S, A, D>(
+    data: &ArrayBase<S, D>,
+    weights: Array<A, D>,
     mode: CorrelateMode<A>,
     origin: isize,
 ) -> Array<A, D>
