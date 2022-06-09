@@ -1,7 +1,9 @@
-use ndarray::{s, Array, Array1, ArrayBase, Axis, Data, Dimension, Ix1, Ix3, ScalarOperand, Zip};
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use ndarray::{
+    s, Array, Array1, ArrayBase, Axis, Data, Dimension, Ix1, Ix3, ScalarOperand, ShapeBuilder, Zip,
+};
+use num_traits::{Float, FromPrimitive, Num, ToPrimitive};
 
-use crate::{array_like, dim_minus_1, pad_to, Mask, PadMode};
+use crate::{array_like, dim_minus_1, pad, pad_to, Mask, PadMode};
 
 /// Method that will be used to determines how the input array is extended beyond its boundaries.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -133,7 +135,7 @@ fn _correlate1d<S, A, D>(
 where
     S: Data<Elem = A>,
     // TODO Should be Num, not Float
-    A: Float + ScalarOperand + FromPrimitive,
+    A: Float + FromPrimitive,
     D: Dimension,
 {
     assert!(
@@ -228,6 +230,46 @@ where
         }
     }
     state
+}
+
+/// Multidimensional correlation.
+///
+/// The array is correlated with the given kernel.
+///
+/// * `data` - The input N-D data.
+/// * `weights` - 1-D sequence of numbers.
+/// * `mode` - Method that will be used to select the padded values. See the
+///   [`CorrelateMode`](crate::CorrelateMode) enum for more information.
+pub fn correlate<S, A, D>(
+    data: &ArrayBase<S, D>,
+    weights: &ArrayBase<S, D>,
+    mode: CorrelateMode<A>,
+) -> Array<A, D>
+where
+    S: Data<Elem = A>,
+    A: Copy + Num + FromPrimitive + PartialOrd,
+    D: Dimension,
+{
+    let n = weights.shape()[0] / 2;
+    let padded = pad(data, &[[n, n]], mode.to_pad_mode());
+    let strides = padded.strides();
+    let offsets: Vec<_> = weights
+        .indexed_iter()
+        .filter_map(|(idx, &k)| {
+            (k != A::zero()).then(|| {
+                let idx = idx.into_shape().raw_dim().clone();
+                let offset =
+                    (0..data.ndim()).fold(0, |offset, d| offset + idx[d] * strides[d] as usize);
+                (k, offset)
+            })
+        })
+        .collect();
+    let padded = padded.as_slice_memory_order().unwrap();
+    Array::from_shape_fn(data.dim(), |idx| {
+        let idx = idx.into_shape().raw_dim().clone();
+        let start = (0..data.ndim()).fold(0, |acc, d| acc + idx[d] * strides[d] as usize);
+        offsets.iter().fold(A::zero(), |acc, &(k, offset)| acc + k * padded[start + offset])
+    })
 }
 
 /// Binary median filter.
