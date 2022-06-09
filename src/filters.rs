@@ -138,11 +138,6 @@ where
     A: Float + FromPrimitive,
     D: Dimension,
 {
-    assert!(
-        origin >= -(weights.len() as isize) / 2 && origin <= (weights.len() as isize - 1) / 2,
-        "origin must satisfy: -(len(weights) / 2) <= origin <= (len(weights) - 1) / 2"
-    );
-
     let symmetry_state = symmetry_state(weights);
     let size1 = weights.len() / 2;
     let size2 = weights.len() - size1 - 1;
@@ -150,7 +145,7 @@ where
 
     let mode = mode.to_pad_mode();
     let n = data.len_of(axis);
-    let pad = vec![[(size1 as isize + origin) as usize, (size2 as isize - origin) as usize]];
+    let pad = vec![origin_check(weights.len(), origin, size1, size2)];
     let mut buffer = Array1::from_elem(n + pad[0][0] + pad[0][1], mode.init());
 
     let mut output = data.to_owned();
@@ -240,10 +235,14 @@ where
 /// * `weights` - 1-D sequence of numbers.
 /// * `mode` - Method that will be used to select the padded values. See the
 ///   [`CorrelateMode`](crate::CorrelateMode) enum for more information.
+/// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
+///    centers the filter over the pixel, with positive values shifting the filter to the left, and
+///    negative ones to the right.
 pub fn correlate<S, A, D>(
     data: &ArrayBase<S, D>,
     weights: &ArrayBase<S, D>,
     mode: CorrelateMode<A>,
+    origin: isize,
 ) -> Array<A, D>
 where
     S: Data<Elem = A>,
@@ -251,7 +250,7 @@ where
     D: Dimension,
 {
     let n = weights.shape()[0] / 2;
-    let padded = pad(data, &[[n, n]], mode.to_pad_mode());
+    let padded = pad(data, &[origin_check(weights.shape()[0], origin, n, n)], mode.to_pad_mode());
     let strides = padded.strides();
     let offsets: Vec<_> = weights
         .indexed_iter()
@@ -270,6 +269,15 @@ where
         let start = (0..data.ndim()).fold(0, |acc, d| acc + idx[d] * strides[d] as usize);
         offsets.iter().fold(A::zero(), |acc, &(k, offset)| acc + k * padded[start + offset])
     })
+}
+
+fn origin_check(len: usize, origin: isize, left: usize, right: usize) -> [usize; 2] {
+    let len = len as isize;
+    assert!(
+        origin >= -len / 2 && origin <= (len - 1) / 2,
+        "origin must satisfy: -(len(weights) / 2) <= origin <= (len(weights) - 1) / 2"
+    );
+    [(left as isize + origin) as usize, (right as isize - origin) as usize]
 }
 
 /// Binary median filter.

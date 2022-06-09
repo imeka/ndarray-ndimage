@@ -289,7 +289,7 @@ fn test_correlate() {
 
     let weight = arr2(&[[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
     assert_eq!(
-        correlate(&a, &weight, CorrelateMode::Constant(2)),
+        correlate(&a, &weight, CorrelateMode::Constant(2), 0),
         arr2(&[
             [8, 10, 12, 14, 8],
             [18, 18, 21, 24, 14],
@@ -299,7 +299,7 @@ fn test_correlate() {
         ])
     );
     assert_eq!(
-        correlate(&a, &weight, CorrelateMode::Nearest),
+        correlate(&a, &weight, CorrelateMode::Nearest, 0),
         arr2(&[
             [6, 8, 11, 14, 16],
             [16, 18, 21, 24, 26],
@@ -309,17 +309,17 @@ fn test_correlate() {
         ])
     );
     assert_eq!(
-        correlate(&a, &weight, CorrelateMode::Mirror),
+        correlate(&a, &weight, CorrelateMode::Mirror, -1),
         arr2(&[
-            [12, 13, 16, 19, 20],
-            [17, 18, 21, 24, 25],
-            [32, 33, 36, 39, 40],
-            [47, 48, 51, 54, 55],
-            [52, 53, 56, 59, 60]
+            [18, 21, 24, 25, 24],
+            [33, 36, 39, 40, 39],
+            [48, 51, 54, 55, 54],
+            [53, 56, 59, 60, 59],
+            [48, 51, 54, 55, 54]
         ])
     );
     assert_eq!(
-        correlate(&a, &weight, CorrelateMode::Reflect),
+        correlate(&a, &weight, CorrelateMode::Reflect, 0),
         arr2(&[
             [6, 8, 11, 14, 16],
             [16, 18, 21, 24, 26],
@@ -329,19 +329,19 @@ fn test_correlate() {
         ])
     );
     assert_eq!(
-        correlate(&a, &weight, CorrelateMode::Wrap),
+        correlate(&a, &weight, CorrelateMode::Wrap, 1),
         arr2(&[
-            [30, 28, 31, 34, 32],
-            [20, 18, 21, 24, 22],
-            [35, 33, 36, 39, 37],
-            [50, 48, 51, 54, 52],
-            [40, 38, 41, 44, 42]
+            [42, 40, 38, 41, 44],
+            [32, 30, 28, 31, 34],
+            [22, 20, 18, 21, 24],
+            [37, 35, 33, 36, 39],
+            [52, 50, 48, 51, 54]
         ])
     );
 
     let weight = arr2(&[[0.0, 0.1, 0.0], [0.1, 0.9, 0.1], [0.0, 0.1, 0.0]]);
     assert_relative_eq!(
-        correlate(&a.mapv(|v| v as f32), &weight, CorrelateMode::Reflect),
+        correlate(&a.mapv(|v| v as f32), &weight, CorrelateMode::Reflect, 0),
         arr2(&[
             [0.6, 1.8, 3.1, 4.4, 5.6],
             [6.6, 7.8, 9.1, 10.4, 11.6],
