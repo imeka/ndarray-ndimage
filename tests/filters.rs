@@ -2,7 +2,8 @@ use approx::assert_relative_eq;
 use ndarray::{arr1, arr2, s, Array1, Axis};
 
 use ndarray_ndimage::{
-    convolve1d, correlate, correlate1d, gaussian_filter, median_filter, CorrelateMode, Mask,
+    convolve, convolve1d, correlate, correlate1d, gaussian_filter, median_filter, CorrelateMode,
+    Mask,
 };
 
 #[test] // Results verified with SciPy. (v1.9.0)
@@ -279,6 +280,44 @@ fn test_correlate1d() {
     assert_eq!(
         correlate1d(&arr, &arr1(&[1.0, 0.5, 1.0, 1.5]), Axis(0), CorrelateMode::Reflect, 1),
         arr1(&[9.0, 23.0, 11.0, 12.0, 13.5, 16.5, 27.0, 14.5])
+    );
+}
+
+#[test] // Results verified with SciPy. (v1.9.0)
+fn test_convolve() {
+    let a: Array1<usize> = (0..25).collect();
+    let a = a.into_shape((5, 5)).unwrap();
+
+    let weight = arr2(&[[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
+    assert_eq!(
+        convolve(&a, &weight, CorrelateMode::Mirror, 1),
+        arr2(&[
+            [18, 21, 24, 25, 24],
+            [33, 36, 39, 40, 39],
+            [48, 51, 54, 55, 54],
+            [53, 56, 59, 60, 59],
+            [48, 51, 54, 55, 54],
+        ])
+    );
+    assert_eq!(
+        convolve(&a, &weight, CorrelateMode::Reflect, 0),
+        arr2(&[
+            [6, 8, 11, 14, 16],
+            [16, 18, 21, 24, 26],
+            [31, 33, 36, 39, 41],
+            [46, 48, 51, 54, 56],
+            [56, 58, 61, 64, 66],
+        ])
+    );
+    assert_eq!(
+        convolve(&a, &weight, CorrelateMode::Wrap, -1),
+        arr2(&[
+            [42, 40, 38, 41, 44],
+            [32, 30, 28, 31, 34],
+            [22, 20, 18, 21, 24],
+            [37, 35, 33, 36, 39],
+            [52, 50, 48, 51, 54],
+        ])
     );
 }
 
