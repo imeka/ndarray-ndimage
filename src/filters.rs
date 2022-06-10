@@ -78,9 +78,12 @@ where
     }
 
     let weights = Zip::from(weights.slice(s![..; -1])).map_collect(|&w| w);
+
+    origin = -origin;
     if weights.len() % 2 == 0 {
         origin -= 1;
     }
+
     _correlate1d(data, weights.as_slice().unwrap(), axis, mode, origin)
 }
 

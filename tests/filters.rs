@@ -19,6 +19,10 @@ fn test_convolve1d() {
     ]);
 
     assert_eq!(
+        convolve1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), CorrelateMode::Reflect, -1),
+        arr1(&[8.0, 14.0, 24.0, 4.0, 13.0, 12.0, 36.0, 27.0])
+    );
+    assert_eq!(
         convolve1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), CorrelateMode::Reflect, 0),
         arr1(&[14.0, 24.0, 4.0, 13.0, 12.0, 36.0, 27.0, 0.0])
     );
