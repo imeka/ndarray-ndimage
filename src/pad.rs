@@ -88,11 +88,13 @@ impl<T: PartialEq> PadMode<T> {
         T: Clone + Copy + FromPrimitive + Num + PartialOrd,
     {
         match *self {
-            PadMode::Minimum => *lane.min().unwrap(),
-            PadMode::Mean => lane.mean().unwrap(),
+            PadMode::Minimum => *lane.min().expect("Can't find min because of NaN values"),
+            PadMode::Mean => lane.mean().expect("Can't find mean because of NaN values"),
             PadMode::Median => {
                 buffer.assign(&lane);
-                buffer.as_slice_mut().unwrap().sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+                buffer.as_slice_mut().unwrap().sort_unstable_by(|a, b| {
+                    a.partial_cmp(b).expect("Can't find median because of NaN values")
+                });
                 let n = buffer.len();
                 let h = (n - 1) / 2;
                 let dadc = if n & 1 > 0 {
@@ -102,7 +104,7 @@ impl<T: PartialEq> PadMode<T> {
                 };
                 dadc
             }
-            PadMode::Maximum => *lane.max().unwrap(),
+            PadMode::Maximum => *lane.max().expect("Can't find max because of NaN values"),
             _ => panic!("Only Minimum, Median and Maximum have a dynamic value"),
         }
     }
