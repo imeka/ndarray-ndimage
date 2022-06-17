@@ -1,15 +1,16 @@
 //! This modules defines some image padding methods for 3D images.
 
+use std::borrow::Cow;
+
 use ndarray::{
-    s, Array, Array1, ArrayBase, ArrayView1, Axis, AxisDescription, Data, Dimension, ShapeBuilder,
-    Slice, Zip,
+    s, Array, Array1, ArrayBase, ArrayView1, Axis, AxisDescription, Data, Dimension, Slice, Zip,
 };
 use ndarray_stats::QuantileExt;
 use num_traits::{FromPrimitive, Num, Zero};
 
 use crate::array_like;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 /// Method that will be used to select the padded values.
 pub enum PadMode<T> {
     /// Pads with a constant value.
@@ -61,7 +62,7 @@ pub enum PadMode<T> {
 }
 
 impl<T: PartialEq> PadMode<T> {
-    fn init(&self) -> T
+    pub(crate) fn init(&self) -> T
     where
         T: Copy + Zero,
     {
@@ -87,11 +88,13 @@ impl<T: PartialEq> PadMode<T> {
         T: Clone + Copy + FromPrimitive + Num + PartialOrd,
     {
         match *self {
-            PadMode::Minimum => *lane.min().unwrap(),
-            PadMode::Mean => lane.mean().unwrap(),
+            PadMode::Minimum => *lane.min().expect("Can't find min because of NaN values"),
+            PadMode::Mean => lane.mean().expect("Can't find mean because of NaN values"),
             PadMode::Median => {
                 buffer.assign(&lane);
-                buffer.as_slice_mut().unwrap().sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+                buffer.as_slice_mut().unwrap().sort_unstable_by(|a, b| {
+                    a.partial_cmp(b).expect("Can't find median because of NaN values")
+                });
                 let n = buffer.len();
                 let h = (n - 1) / 2;
                 let dadc = if n & 1 > 0 {
@@ -101,7 +104,7 @@ impl<T: PartialEq> PadMode<T> {
                 };
                 dadc
             }
-            PadMode::Maximum => *lane.max().unwrap(),
+            PadMode::Maximum => *lane.max().expect("Can't find max because of NaN values"),
             _ => panic!("Only Minimum, Median and Maximum have a dynamic value"),
         }
     }
@@ -110,19 +113,20 @@ impl<T: PartialEq> PadMode<T> {
         *self == PadMode::Median
     }
 
-    fn indices(&self, size: usize, pad: usize) -> (Vec<usize>, Vec<usize>) {
+    fn indices(&self, size: usize, pad_left: usize, pad_right: usize) -> (Vec<usize>, Vec<usize>) {
         match *self {
             PadMode::Reflect => (
-                (1..=pad).rev().map(|i| i + pad).collect(),
-                (size - pad - 1..size - 1).rev().map(|i| i + pad).collect(),
+                (1..=pad_left).rev().map(|i| i + pad_left).collect(),
+                (size - pad_right - 1..size - 1).rev().map(|i| i + pad_left).collect(),
             ),
             PadMode::Symmetric => (
-                (0..pad).rev().map(|i| i + pad).collect(),
-                (size - pad..size).rev().map(|i| i + pad).collect(),
+                (0..pad_left).rev().map(|i| i + pad_left).collect(),
+                (size - pad_right..size).rev().map(|i| i + pad_left).collect(),
             ),
-            PadMode::Wrap => {
-                ((size - pad..size).map(|i| i + pad).collect(), (0..pad).map(|i| i + pad).collect())
-            }
+            PadMode::Wrap => (
+                (size - pad_left..size).map(|i| i + pad_left).collect(),
+                (0..pad_right).map(|i| i + pad_left).collect(),
+            ),
             _ => panic!("Only Reflect, Symmetric and Wrap have indices"),
         }
     }
@@ -142,24 +146,51 @@ enum PadAction {
 /// * `pad` - Number of values padded to the edges of each axis.
 /// * `mode` - Method that will be used to select the padded values. See the
 ///   [`PadMode`](crate::PadMode) enum for more information.
-pub fn pad<S, A, D, Sh>(data: &ArrayBase<S, D>, pad: Sh, mode: PadMode<A>) -> Array<A, D>
+pub fn pad<S, A, D>(data: &ArrayBase<S, D>, pad: &[[usize; 2]], mode: PadMode<A>) -> Array<A, D>
 where
     S: Data<Elem = A>,
-    A: Clone + Copy + FromPrimitive + Num + PartialOrd + std::fmt::Display,
-    D: Dimension + Copy,
-    Sh: ShapeBuilder<Dim = D>,
+    A: Copy + FromPrimitive + Num + PartialOrd,
+    D: Dimension,
 {
-    let pad = pad.into_shape().raw_dim().clone();
-    let new_dim = data.raw_dim() + pad.clone() + pad.clone();
+    let pad = read_pad(data.ndim(), pad);
+    let mut new_dim = data.raw_dim();
+    for (ax, (&ax_len, pad)) in data.shape().iter().zip(pad.iter()).enumerate() {
+        new_dim[ax] = ax_len + pad[0] + pad[1];
+    }
+
     let mut padded = array_like(&data, new_dim, mode.init());
+    pad_to(data, &pad, mode, &mut padded);
+    padded
+}
+
+/// Pad an image.
+///
+/// Write the result in the already_allocated array `output`.
+///
+/// * `data` - A N-D array of the data to pad.
+/// * `pad` - Number of values padded to the edges of each axis.
+/// * `mode` - Method that will be used to select the padded values. See the
+///   [`PadMode`](crate::PadMode) enum for more information.
+/// * `output` - An already allocated N-D array used to write the results.
+pub fn pad_to<S, A, D>(
+    data: &ArrayBase<S, D>,
+    pad: &[[usize; 2]],
+    mode: PadMode<A>,
+    output: &mut Array<A, D>,
+) where
+    S: Data<Elem = A>,
+    A: Copy + FromPrimitive + Num + PartialOrd,
+    D: Dimension,
+{
+    let pad = read_pad(data.ndim(), pad);
 
     // Select portion of padded array that needs to be copied from the original array.
-    padded
+    output
         .view_mut()
         .slice_each_axis_mut(|ad| {
             let AxisDescription { axis, len, .. } = ad;
             let d = axis.index();
-            Slice::from(pad[d]..len - pad[d])
+            Slice::from(pad[d][0]..len - pad[d][1])
         })
         .assign(data);
 
@@ -167,11 +198,12 @@ where
         PadAction::StopAfterCopy => { /* Nothing */ }
         PadAction::ByIndices => {
             for d in 0..data.ndim() {
-                let start = pad[d];
+                let pad = pad[d];
+                let start = pad[0];
                 let end = start + data.shape()[d];
-                let (left_indices, right_indices) = mode.indices(data.shape()[d], pad[d]);
-                let mut buffer = Array1::zeros(padded.shape()[d]);
-                Zip::from(padded.lanes_mut(Axis(d))).for_each(|mut lane| {
+                let (left_indices, right_indices) = mode.indices(data.shape()[d], pad[0], pad[1]);
+                let mut buffer = Array1::zeros(output.shape()[d]);
+                Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
                     buffer.assign(&lane);
                     Zip::from(lane.slice_mut(s![..start])).and(&left_indices).for_each(|e, &i| {
                         *e = buffer[i];
@@ -184,11 +216,11 @@ where
         }
         PadAction::ByLane => {
             for d in 0..data.ndim() {
-                let start = pad[d];
+                let start = pad[d][0];
                 let end = start + data.shape()[d];
                 let mut buffer =
                     if mode.needs_buffer() { Array1::zeros(end - start) } else { Array1::zeros(0) };
-                Zip::from(padded.lanes_mut(Axis(d))).for_each(|mut lane| {
+                Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
                     let v = mode.dynamic_value(lane.slice(s![start..end]), &mut buffer);
                     lane.slice_mut(s![..start]).fill(v);
                     lane.slice_mut(s![end..]).fill(v);
@@ -197,9 +229,9 @@ where
         }
         PadAction::BySides => {
             for d in 0..data.ndim() {
-                let start = pad[d];
+                let start = pad[d][0];
                 let end = start + data.shape()[d];
-                Zip::from(padded.lanes_mut(Axis(d))).for_each(|mut lane| {
+                Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
                     let left = lane[start];
                     let right = lane[end - 1];
                     lane.slice_mut(s![..start]).fill(left);
@@ -208,5 +240,15 @@ where
             }
         }
     }
-    padded
+}
+
+fn read_pad(nb_dim: usize, pad: &[[usize; 2]]) -> Cow<[[usize; 2]]> {
+    if pad.len() == 1 && pad.len() < nb_dim {
+        // The user provided a single padding for all dimensions
+        Cow::from(vec![pad[0]; nb_dim])
+    } else if pad.len() == nb_dim {
+        Cow::from(pad)
+    } else {
+        panic!("Inconsistant number of dimensions and pad arrays");
+    }
 }

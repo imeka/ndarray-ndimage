@@ -11,11 +11,14 @@ mod measurements;
 mod morphology;
 mod pad;
 
-pub use filters::{gaussian_filter, gaussian_filter1d, median_filter};
+pub use filters::{
+    convolve, convolve1d, correlate, correlate1d, gaussian_filter, gaussian_filter1d,
+    median_filter, CorrelateMode,
+};
 pub use interpolation::{spline_filter, spline_filter1d};
 pub use measurements::{label, label_histogram, largest_connected_components, most_frequent_label};
 pub use morphology::{binary_dilation, binary_erosion};
-pub use pad::{pad, PadMode};
+pub use pad::{pad, pad_to, PadMode};
 
 /// 3D mask
 pub type Mask = Array3<bool>;
