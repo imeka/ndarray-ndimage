@@ -5,6 +5,7 @@ use num_traits::{Float, FromPrimitive, Num, ToPrimitive};
 
 use crate::{array_like, dim_minus_1, pad, pad_to, Mask, PadMode};
 
+// TODO We might want to offer all NumPy mode (use PadMode instead)
 /// Method that will be used to determines how the input array is extended beyond its boundaries.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum CorrelateMode<T> {
@@ -314,21 +315,21 @@ where
     let n = weights.shape()[0] / 2;
     let padded = pad(data, &[origin_check(weights.shape()[0], origin, n, n)], mode.to_pad_mode());
     let strides = padded.strides();
+    let starting_idx_at = |idx: <D as Dimension>::Pattern| {
+        let idx = idx.into_shape().raw_dim().clone();
+        (0..data.ndim()).fold(0, |offset, d| offset + idx[d] * strides[d] as usize)
+    };
+    let padded = padded.as_slice_memory_order().unwrap();
+
+    // Find the offsets for all non-zero values of the kernel
     let offsets: Vec<_> = weights
         .indexed_iter()
-        .filter_map(|(idx, &k)| {
-            (k != A::zero()).then(|| {
-                let idx = idx.into_shape().raw_dim().clone();
-                let offset =
-                    (0..data.ndim()).fold(0, |offset, d| offset + idx[d] * strides[d] as usize);
-                (k, offset)
-            })
-        })
+        .filter_map(|(idx, &k)| (k != A::zero()).then(|| (k, starting_idx_at(idx))))
         .collect();
-    let padded = padded.as_slice_memory_order().unwrap();
+    // Because we're working with a non-padded and a padded image, the offsets are not enough; we
+    // must adjust them with a starting index. Otherwise, only the first row is right.
     Array::from_shape_fn(data.dim(), |idx| {
-        let idx = idx.into_shape().raw_dim().clone();
-        let start = (0..data.ndim()).fold(0, |acc, d| acc + idx[d] * strides[d] as usize);
+        let start = starting_idx_at(idx);
         offsets.iter().fold(A::zero(), |acc, &(k, offset)| acc + k * padded[start + offset])
     })
 }
