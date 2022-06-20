@@ -1,4 +1,4 @@
-use ndarray::{s, ArrayBase, Data, Ix3, Zip};
+use ndarray::{s, Array3, ArrayBase, Data, Ix3, Zip};
 
 use crate::{array_like, dim_minus_1, Kernel3d, Mask};
 
@@ -11,14 +11,10 @@ where
     S: Data<Elem = bool>,
 {
     // By definition, all borders are set to 0
-    let mut eroded_mask = mask.to_owned();
     let (width, height, depth) = dim_minus_1(mask);
-    eroded_mask.slice_mut(s![0, .., ..]).fill(false);
-    eroded_mask.slice_mut(s![width, .., ..]).fill(false);
-    eroded_mask.slice_mut(s![.., 0, ..]).fill(false);
-    eroded_mask.slice_mut(s![.., height, ..]).fill(false);
-    eroded_mask.slice_mut(s![.., .., 0]).fill(false);
-    eroded_mask.slice_mut(s![.., .., depth]).fill(false);
+    let mut eroded_mask = Array3::from_elem(mask.dim(), false);
+    let zone = s![1..width, 1..height, 1..depth];
+    eroded_mask.slice_mut(zone).assign(&mask.slice(zone));
 
     // Erode the mask when at least one of the values doesn't respect the kernel.
     // An erosion is defined either as `all(!(!w & k))` or `!any(!w & k)`.
