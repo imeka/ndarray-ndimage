@@ -9,9 +9,9 @@ It aims to:
 - avoid using `unsafe`. This is not an unbreakable rule. Its usage will be evaluated and dicussed in the pull requests.
 
 Currently available routines include:
-- Filters: correlate, correlate1d, gaussian_filter, gaussian_filter1d, median_filter
+- Filters: convolve/1d, correlate/1d, gaussian_filter/1d, median_filter
 - Fourier filters: none. Please use the excellent [`rustfft`] crate
-- Interpolation: spline_filter, spline_filter1d
+- Interpolation: spline_filter/1d
 - Measurements: label, label_histogram, largest_connected_components, most_frequent_label
 - Morphology: binary_dilation, binary_erosion
 - Padding: Almost all modes. Work for all dimensions and types.
