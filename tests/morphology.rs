@@ -1,6 +1,6 @@
 use ndarray::s;
 
-use ndarray_ndimage::{binary_dilation, binary_erosion, dim_minus_1, Kernel3d, Mask};
+use ndarray_ndimage::{binary_dilation, binary_erosion, dim_minus, Kernel3d, Mask};
 
 #[test] // Results verified with the `binary_erosion` function from SciPy. (v1.7.0)
 fn test_binary_erosion() {
@@ -8,11 +8,29 @@ fn test_binary_erosion() {
 
     let mut gt = Mask::from_elem((4, 5, 6), false);
     gt.slice_mut(s![1..3, 1..4, 1..5]).fill(true);
-    assert_eq!(binary_erosion(&mask, Kernel3d::Star), gt);
+    assert_eq!(binary_erosion(&mask, Kernel3d::Star, 1), gt);
 
     mask[(0, 2, 2)] = false;
     gt[(1, 2, 2)] = false;
-    assert_eq!(binary_erosion(&mask.view(), Kernel3d::Star), gt);
+    assert_eq!(binary_erosion(&mask.view(), Kernel3d::Star, 1), gt);
+
+    let mut mask = Mask::from_elem((6, 7, 8), false);
+    mask.slice_mut(s![1..5, 1..6, 1..7]).fill(true);
+    let mut gt = Mask::from_elem((6, 7, 8), false);
+    gt.slice_mut(s![2..4, 2..5, 2..6]).fill(true);
+    assert_eq!(binary_erosion(&mask, Kernel3d::Star, 1), gt);
+
+    let mut mask = Mask::from_elem((7, 7, 7), false);
+    mask.slice_mut(s![2.., 1.., 1..]).fill(true);
+    let mut gt = Mask::from_elem((7, 7, 7), false);
+    gt.slice_mut(s![4, 3..5, 3..5]).fill(true);
+    assert_eq!(gt, binary_erosion(&mask.view(), Kernel3d::Star, 2));
+
+    let mut mask = Mask::from_elem((9, 9, 9), false);
+    mask.slice_mut(s![2.., 1.., ..]).fill(true);
+    let mut gt = Mask::from_elem((9, 9, 9), false);
+    gt.slice_mut(s![5, 4..6, 3..6]).fill(true);
+    assert_eq!(gt, binary_erosion(&mask.view(), Kernel3d::Star, 3));
 }
 
 #[test] // Results verified with the `binary_erosion` function from SciPy. (v1.7.0)
@@ -21,14 +39,14 @@ fn test_binary_erosion_hole() {
     mask[(5, 5, 5)] = false;
 
     let mut gt = Mask::from_elem((11, 11, 11), false);
-    let (width, height, depth) = dim_minus_1(&mask);
+    let (width, height, depth) = dim_minus(&mask, 1);
     gt.slice_mut(s![1..width, 1..height, 1..depth]).fill(true);
     // Remove the star shape in the image center.
     gt.slice_mut(s![4..7, 5, 5]).fill(false);
     gt.slice_mut(s![5, 4..7, 5]).fill(false);
     gt.slice_mut(s![5, 5, 4..7]).fill(false);
 
-    assert_eq!(gt, binary_erosion(&mask, Kernel3d::Star));
+    assert_eq!(gt, binary_erosion(&mask, Kernel3d::Star, 1));
 }
 
 #[test] // Results verified with the `binary_erosion` function from SciPy. (v1.7.0)
@@ -37,12 +55,12 @@ fn test_binary_erosion_cube_kernel() {
     mask[(5, 5, 5)] = false;
 
     let mut gt = Mask::from_elem((11, 11, 11), false);
-    let (width, height, depth) = dim_minus_1(&mask);
+    let (width, height, depth) = dim_minus(&mask, 1);
     gt.slice_mut(s![1..width, 1..height, 1..depth]).fill(true);
     // Remove the cube shape in the image center.
     gt.slice_mut(s![4..7, 4..7, 4..7]).fill(false);
 
-    assert_eq!(gt, binary_erosion(&mask, Kernel3d::Full));
+    assert_eq!(gt, binary_erosion(&mask, Kernel3d::Full, 1));
 }
 
 #[test] // Results verified with the `binary_dilation` function from SciPy. (v1.7.0)
