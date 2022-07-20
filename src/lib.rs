@@ -17,7 +17,7 @@ pub use filters::{
 };
 pub use interpolation::{spline_filter, spline_filter1d};
 pub use measurements::{label, label_histogram, largest_connected_components, most_frequent_label};
-pub use morphology::{binary_dilation, binary_erosion, binary_opening};
+pub use morphology::{binary_closing, binary_dilation, binary_erosion, binary_opening};
 pub use pad::{pad, pad_to, PadMode};
 
 /// 3D mask

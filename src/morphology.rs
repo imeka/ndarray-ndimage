@@ -121,3 +121,20 @@ where
     let eroded = binary_erosion(mask, kernel, iterations);
     binary_dilation(&eroded, kernel, iterations)
 }
+
+/// Binary closing of a 3D binary image.
+///
+/// The closing of an input image by a structuring element is the erosion of the dilation of the
+/// image by the structuring element.
+///
+/// * `mask` - Binary image to be closed.
+/// * `kernel` - Structuring element used for the closing.
+/// * `iterations` - The dilation step of the closing, then the erosion step are each repeated
+///   iterations times.
+pub fn binary_closing<S>(mask: &ArrayBase<S, Ix3>, kernel: Kernel3d, iterations: usize) -> Mask
+where
+    S: Data<Elem = bool>,
+{
+    let dilated = binary_dilation(mask, kernel, iterations);
+    binary_erosion(&dilated, kernel, iterations)
+}

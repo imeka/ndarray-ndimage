@@ -1,6 +1,8 @@
 use ndarray::s;
 
-use ndarray_ndimage::{binary_dilation, binary_erosion, binary_opening, dim_minus, Kernel3d, Mask};
+use ndarray_ndimage::{
+    binary_closing, binary_dilation, binary_erosion, binary_opening, dim_minus, Kernel3d, Mask,
+};
 
 #[test] // Results verified with the `binary_erosion` function from SciPy. (v1.7.0)
 fn test_binary_erosion() {
@@ -121,7 +123,7 @@ fn test_binary_dilation_corner() {
     assert_eq!(gt, binary_dilation(&mask, Kernel3d::Full, 1));
 }
 
-#[test]
+#[test] // Results verified with the `binary_dilation` function from SciPy. (v1.7.0)
 fn test_binary_opening() {
     let mut mask = Mask::from_elem((7, 7, 7), false);
     mask.slice_mut(s![2..6, 2..6, 2..6]).fill(true);
@@ -131,4 +133,21 @@ fn test_binary_opening() {
     mask.slice_mut(s![1..6, 1..6, 1..6]).fill(true);
     gt.slice_mut(s![1..6, 1..6, 1..6]).fill(true);
     assert_eq!(gt, binary_opening(&mask.view(), Kernel3d::Full, 2));
+}
+
+#[test] // Results verified with the `binary_dilation` function from SciPy. (v1.7.0)
+fn test_binary_closing() {
+    let mut mask = Mask::from_elem((7, 7, 7), false);
+    mask[(3, 3, 3)] = true;
+    let mut gt = Mask::from_elem(mask.dim(), false);
+    gt[(3, 3, 3)] = true;
+    assert_eq!(gt, binary_closing(&mask.view(), Kernel3d::Star, 2));
+
+    mask.slice_mut(s![2..5, 2..5, 2..5]).fill(true);
+    gt.slice_mut(s![2..5, 2..5, 2..5]).fill(true);
+    assert_eq!(gt, binary_closing(&mask.view(), Kernel3d::Star, 2));
+
+    mask.slice_mut(s![1..6, 1..6, 1..6]).fill(true);
+    mask.slice_mut(s![2..5, 2..5, 2..5]).fill(false);
+    assert_eq!(gt, binary_closing(&mask.view(), Kernel3d::Star, 2));
 }
