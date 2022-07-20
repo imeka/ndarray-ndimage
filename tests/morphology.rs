@@ -1,6 +1,6 @@
 use ndarray::s;
 
-use ndarray_ndimage::{binary_dilation, binary_erosion, dim_minus, Kernel3d, Mask};
+use ndarray_ndimage::{binary_dilation, binary_erosion, binary_opening, dim_minus, Kernel3d, Mask};
 
 #[test] // Results verified with the `binary_erosion` function from SciPy. (v1.7.0)
 fn test_binary_erosion() {
@@ -119,4 +119,16 @@ fn test_binary_dilation_corner() {
     gt.slice_mut(s![8.., 8.., 8..]).fill(false);
 
     assert_eq!(gt, binary_dilation(&mask, Kernel3d::Full, 1));
+}
+
+#[test]
+fn test_binary_opening() {
+    let mut mask = Mask::from_elem((7, 7, 7), false);
+    mask.slice_mut(s![2..6, 2..6, 2..6]).fill(true);
+    let mut gt = Mask::from_elem(mask.dim(), false);
+    assert_eq!(gt, binary_opening(&mask.view(), Kernel3d::Star, 2));
+
+    mask.slice_mut(s![1..6, 1..6, 1..6]).fill(true);
+    gt.slice_mut(s![1..6, 1..6, 1..6]).fill(true);
+    assert_eq!(gt, binary_opening(&mask.view(), Kernel3d::Full, 2));
 }

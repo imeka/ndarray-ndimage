@@ -64,7 +64,7 @@ where
 ///
 /// * `mask` - Binary image to be dilated.
 /// * `kernel` - Structuring element used for the dilation.
-/// * `iterations` - The erosion is repeated iterations times.
+/// * `iterations` - The dilation is repeated iterations times.
 pub fn binary_dilation<S>(mask: &ArrayBase<S, Ix3>, kernel: Kernel3d, iterations: usize) -> Mask
 where
     S: Data<Elem = bool>,
@@ -103,4 +103,21 @@ where
     }
 
     new_mask.slice(crop).to_owned()
+}
+
+/// Binary opening of a 3D binary image.
+///
+/// The opening of an input image by a structuring element is the dilation of the erosion of the
+/// image by the structuring element.
+///
+/// * `mask` - Binary image to be opened.
+/// * `kernel` - Structuring element used for the opening.
+/// * `iterations` - The erosion step of the opening, then the dilation step are each repeated
+///   iterations times.
+pub fn binary_opening<S>(mask: &ArrayBase<S, Ix3>, kernel: Kernel3d, iterations: usize) -> Mask
+where
+    S: Data<Elem = bool>,
+{
+    let eroded = binary_erosion(mask, kernel, iterations);
+    binary_dilation(&eroded, kernel, iterations)
 }
