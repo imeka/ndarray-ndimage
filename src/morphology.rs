@@ -64,34 +64,43 @@ where
 ///
 /// * `mask` - Binary image to be dilated.
 /// * `kernel` - Structuring element used for the dilation.
-pub fn binary_dilation<S>(mask: &ArrayBase<S, Ix3>, kernel: Kernel3d) -> Mask
+/// * `iterations` - The erosion is repeated iterations times.
+pub fn binary_dilation<S>(mask: &ArrayBase<S, Ix3>, kernel: Kernel3d, iterations: usize) -> Mask
 where
     S: Data<Elem = bool>,
 {
+    // Dilate the mask when at least one of the values respect the kernel: `any(w & k)`.
+    // Note that an empty kernel will always produce an empty mask.
+    let dilate = |from: ArrayView3<bool>, into: ArrayViewMut3<bool>| {
+        if kernel == Kernel3d::Full {
+            Zip::from(from.windows((3, 3, 3))).map_assign_into(into, |w| w.iter().any(|&w| w));
+        } else {
+            Zip::from(from.windows((3, 3, 3))).map_assign_into(into, |w| {
+                // This ugly condition is equivalent to
+                // *mask = w.iter().zip(&kernel).any(|(w, k)| w & k)
+                // but it's around 5x faster because there's no branch misprediction
+                w[(0, 1, 1)]
+                    || w[(1, 0, 1)]
+                    || w[(1, 1, 0)]
+                    || w[(1, 1, 1)]
+                    || w[(1, 1, 2)]
+                    || w[(1, 2, 1)]
+                    || w[(2, 1, 1)]
+            });
+        }
+    };
     let (width, height, depth) = mask.dim();
     let crop = s![1..=width, 1..=height, 1..=depth];
     let mut new_mask = array_like(mask, (width + 2, height + 2, depth + 2), false);
     new_mask.slice_mut(crop).assign(mask);
-    let mask = new_mask.clone();
 
-    // Dilate the mask when at least one of the values respect the kernel: `any(w & k)`.
-    // Note that an empty kernel will always produce an empty mask.
-    let zone = new_mask.slice_mut(crop);
-    if kernel == Kernel3d::Full {
-        Zip::from(mask.windows((3, 3, 3))).map_assign_into(zone, |w| w.iter().any(|&w| w));
-    } else {
-        Zip::from(mask.windows((3, 3, 3))).map_assign_into(zone, |w| {
-            // This ugly condition is equivalent to
-            // *mask = w.iter().zip(&kernel).any(|(w, k)| w & k)
-            // but it's around 5x faster because there's no branch misprediction
-            w[(0, 1, 1)]
-                || w[(1, 0, 1)]
-                || w[(1, 1, 0)]
-                || w[(1, 1, 1)]
-                || w[(1, 1, 2)]
-                || w[(1, 2, 1)]
-                || w[(2, 1, 1)]
-        });
+    let mut previous = new_mask.clone();
+    dilate(previous.view(), new_mask.slice_mut(crop));
+
+    for _ in 1..iterations {
+        previous = new_mask.clone();
+        dilate(previous.view(), new_mask.slice_mut(crop));
     }
+
     new_mask.slice(crop).to_owned()
 }
