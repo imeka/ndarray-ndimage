@@ -3,7 +3,7 @@ use ndarray::{
 };
 use num_traits::{Float, FromPrimitive, Num, ToPrimitive};
 
-use crate::{array_like, dim_minus_1, pad, pad_to, Mask, PadMode};
+use crate::{array_like, dim_minus, pad, pad_to, Mask, PadMode};
 
 // TODO We might want to offer all NumPy mode (use PadMode instead)
 /// Method that will be used to determines how the input array is extended beyond its boundaries.
@@ -361,7 +361,7 @@ where
         }
     };
 
-    let (width, height, depth) = dim_minus_1(mask);
+    let (width, height, depth) = dim_minus(mask, 1);
     let ranges_x: Vec<_> = (0..=width).map(|x| range(x, width)).collect();
     let ranges_y: Vec<_> = (0..=height).map(|y| range(y, height)).collect();
     let ranges_z: Vec<_> = (0..=depth).map(|z| range(z, depth)).collect();

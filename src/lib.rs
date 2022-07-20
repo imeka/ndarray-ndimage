@@ -50,11 +50,11 @@ where
 }
 
 /// Utilitary function that returns the mask dimension minus 1 on all dimensions.
-pub fn dim_minus_1<S, A>(mask: &ArrayBase<S, Ix3>) -> (usize, usize, usize)
+pub fn dim_minus<S, A>(mask: &ArrayBase<S, Ix3>, n: usize) -> (usize, usize, usize)
 where
     S: Data<Elem = A>,
     A: Clone,
 {
     let (width, height, depth) = mask.dim();
-    (width - 1, height - 1, depth - 1)
+    (width - n, height - n, depth - n)
 }
