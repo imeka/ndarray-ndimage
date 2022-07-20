@@ -95,7 +95,19 @@ fn test_binary_dilation_plain() {
     gt.slice_mut(s![2..w - 1, 2..h - 1, 1..d]).fill(true);
     gt.slice_mut(s![2..w - 1, h - 1, 2..d - 1]).fill(true);
 
-    assert_eq!(gt, binary_dilation(&mask.view(), Kernel3d::Star));
+    assert_eq!(gt, binary_dilation(&mask.view(), Kernel3d::Star, 1));
+
+    let mut mask = Mask::from_elem((w, h, d), false);
+    mask[(4, 4, 4)] = true;
+    let mut gt = Mask::from_elem((w, h, d), false);
+    gt.slice_mut(s![2.., 2.., 2..]).fill(true);
+    assert_eq!(gt, binary_dilation(&mask.view(), Kernel3d::Full, 2));
+
+    let mut mask = Mask::from_elem((w, h, d), false);
+    mask[(4, 5, 5)] = true;
+    let mut gt = Mask::from_elem((w, h, d), false);
+    gt.slice_mut(s![1.., 2.., 2..]).fill(true);
+    assert_eq!(gt, binary_dilation(&mask.view(), Kernel3d::Full, 3));
 }
 
 #[test] // Results verified with the `binary_dilation` function from SciPy. (v1.7.0)
@@ -106,5 +118,5 @@ fn test_binary_dilation_corner() {
     let mut gt = Mask::from_elem((11, 11, 11), true);
     gt.slice_mut(s![8.., 8.., 8..]).fill(false);
 
-    assert_eq!(gt, binary_dilation(&mask, Kernel3d::Full));
+    assert_eq!(gt, binary_dilation(&mask, Kernel3d::Full, 1));
 }
