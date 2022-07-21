@@ -160,6 +160,8 @@ where
         match symmetry_state {
             SymmetryState::NonSymmetric => {
                 Zip::indexed(o).for_each(|i, o| {
+                    // An unsafe here actually help
+                    // acc + unsafe { *buffer.get_unchecked(i) } * w
                     *o = weights.iter().zip(i..).fold(A::zero(), |acc, (&w, i)| acc + buffer[i] * w)
                 });
             }

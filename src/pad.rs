@@ -97,12 +97,11 @@ impl<T: PartialEq> PadMode<T> {
                 });
                 let n = buffer.len();
                 let h = (n - 1) / 2;
-                let dadc = if n & 1 > 0 {
+                if n & 1 > 0 {
                     buffer[h]
                 } else {
                     (buffer[h] + buffer[h + 1]) / T::from_u32(2).unwrap()
-                };
-                dadc
+                }
             }
             PadMode::Maximum => *lane.max().expect("Can't find max because of NaN values"),
             _ => panic!("Only Minimum, Median and Maximum have a dynamic value"),
@@ -222,8 +221,10 @@ pub fn pad_to<S, A, D>(
                     if mode.needs_buffer() { Array1::zeros(end - start) } else { Array1::zeros(0) };
                 Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
                     let v = mode.dynamic_value(lane.slice(s![start..end]), &mut buffer);
-                    lane.slice_mut(s![..start]).fill(v);
-                    lane.slice_mut(s![end..]).fill(v);
+                    if v != A::zero() {
+                        lane.slice_mut(s![..start]).fill(v);
+                        lane.slice_mut(s![end..]).fill(v);
+                    }
                 });
             }
         }
