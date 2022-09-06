@@ -17,7 +17,7 @@ pub use filters::{
 };
 pub use interpolation::{spline_filter, spline_filter1d};
 pub use measurements::{label, label_histogram, largest_connected_components, most_frequent_label};
-pub use morphology::{binary_dilation, binary_erosion};
+pub use morphology::{binary_closing, binary_dilation, binary_erosion, binary_opening};
 pub use pad::{pad, pad_to, PadMode};
 
 /// 3D mask
@@ -50,11 +50,11 @@ where
 }
 
 /// Utilitary function that returns the mask dimension minus 1 on all dimensions.
-pub fn dim_minus_1<S, A>(mask: &ArrayBase<S, Ix3>) -> (usize, usize, usize)
+pub fn dim_minus<S, A>(mask: &ArrayBase<S, Ix3>, n: usize) -> (usize, usize, usize)
 where
     S: Data<Elem = A>,
     A: Clone,
 {
     let (width, height, depth) = mask.dim();
-    (width - 1, height - 1, depth - 1)
+    (width - n, height - n, depth - n)
 }
