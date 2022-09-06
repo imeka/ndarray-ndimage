@@ -8,7 +8,7 @@ use crate::{array_like, dim_minus, pad, pad_to, Mask, PadMode};
 // TODO We might want to offer all NumPy mode (use PadMode instead)
 /// Method that will be used to determines how the input array is extended beyond its boundaries.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum CorrelateMode<T> {
+pub enum BorderMode<T> {
     /// The input is extended by filling all values beyond the edge with the same constant value,
     ///
     /// `[1, 2, 3] -> [T, T, 1, 2, 3, T, T]`
@@ -35,14 +35,14 @@ pub enum CorrelateMode<T> {
     Wrap,
 }
 
-impl<T: Copy> CorrelateMode<T> {
+impl<T: Copy> BorderMode<T> {
     fn to_pad_mode(&self) -> PadMode<T> {
         match *self {
-            CorrelateMode::Constant(t) => PadMode::Constant(t),
-            CorrelateMode::Nearest => PadMode::Edge,
-            CorrelateMode::Mirror => PadMode::Reflect,
-            CorrelateMode::Reflect => PadMode::Symmetric,
-            CorrelateMode::Wrap => PadMode::Wrap,
+            BorderMode::Constant(t) => PadMode::Constant(t),
+            BorderMode::Nearest => PadMode::Edge,
+            BorderMode::Mirror => PadMode::Reflect,
+            BorderMode::Reflect => PadMode::Symmetric,
+            BorderMode::Wrap => PadMode::Wrap,
         }
     }
 }
@@ -62,7 +62,7 @@ pub fn convolve1d<S, A, D>(
     data: &ArrayBase<S, D>,
     weights: &ArrayBase<S, Ix1>,
     axis: Axis,
-    mode: CorrelateMode<A>,
+    mode: BorderMode<A>,
     mut origin: isize,
 ) -> Array<A, D>
 where
@@ -96,7 +96,7 @@ where
 /// * `weights` - 1-D sequence of numbers.
 /// * `axis` - The axis of input along which to calculate.
 /// * `mode` - Method that will be used to select the padded values. See the
-///   [`CorrelateMode`](crate::CorrelateMode) enum for more information.
+///   [`BorderMode`](crate::BorderMode) enum for more information.
 /// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
 ///    centers the filter over the pixel, with positive values shifting the filter to the left, and
 ///    negative ones to the right.
@@ -104,7 +104,7 @@ pub fn correlate1d<S, A, D>(
     data: &ArrayBase<S, D>,
     weights: &ArrayBase<S, Ix1>,
     axis: Axis,
-    mode: CorrelateMode<A>,
+    mode: BorderMode<A>,
     origin: isize,
 ) -> Array<A, D>
 where
@@ -133,7 +133,7 @@ fn _correlate1d<S, A, D>(
     data: &ArrayBase<S, D>,
     weights: &[A],
     axis: Axis,
-    mode: CorrelateMode<A>,
+    mode: BorderMode<A>,
     origin: isize,
 ) -> Array<A, D>
 where
@@ -240,14 +240,14 @@ where
 /// * `data` - The input N-D data.
 /// * `weights` - Array of weights, same number of dimensions as `data`.
 /// * `mode` - Method that will be used to select the padded values. See the
-///   [`CorrelateMode`](crate::CorrelateMode) enum for more information.
+///   [`BorderMode`](crate::BorderMode) enum for more information.
 /// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
 ///    centers the filter over the pixel, with positive values shifting the filter to the left, and
 ///    negative ones to the right.
 pub fn convolve<S, A, D>(
     data: &ArrayBase<S, D>,
     weights: &ArrayBase<S, D>,
-    mode: CorrelateMode<A>,
+    mode: BorderMode<A>,
     mut origin: isize,
 ) -> Array<A, D>
 where
@@ -284,14 +284,14 @@ where
 /// * `data` - The input N-D data.
 /// * `weights` - Array of weights, same number of dimensions as `data`.
 /// * `mode` - Method that will be used to select the padded values. See the
-///   [`CorrelateMode`](crate::CorrelateMode) enum for more information.
+///   [`BorderMode`](crate::BorderMode) enum for more information.
 /// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
 ///    centers the filter over the pixel, with positive values shifting the filter to the left, and
 ///    negative ones to the right.
 pub fn correlate<S, A, D>(
     data: &ArrayBase<S, D>,
     weights: &ArrayBase<S, D>,
-    mode: CorrelateMode<A>,
+    mode: BorderMode<A>,
     origin: isize,
 ) -> Array<A, D>
 where
@@ -306,7 +306,7 @@ where
 fn _correlate<S, A, D>(
     data: &ArrayBase<S, D>,
     weights: Array<A, D>,
-    mode: CorrelateMode<A>,
+    mode: BorderMode<A>,
     origin: isize,
 ) -> Array<A, D>
 where
