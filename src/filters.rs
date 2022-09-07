@@ -1,3 +1,5 @@
+use std::{collections::VecDeque, fmt::Display};
+
 use ndarray::{
     s, Array, Array1, ArrayBase, Axis, Data, Dimension, Ix1, Ix3, ScalarOperand, ShapeBuilder, Zip,
 };
@@ -384,6 +386,84 @@ where
             > nb_required;
     });
     new_mask
+}
+
+/// Calculate a 1-D minimum filter along the given axis.
+///
+/// The lines of the array along the given axis are filtered with a minimum filter of given size.
+///
+/// * `data` - The input N-D data.
+/// * `size` - Length along which to calculate 1D minimum
+/// * `axis` - The axis of input along which to calculate.
+/// * `mode` - Method that will be used to select the padded values. See the
+///   [`CorrelateMode`](crate::CorrelateMode) enum for more information.
+/// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
+///   centers the filter over the pixel, with positive values shifting the filter to the left, and
+///   negative ones to the right.
+pub fn minimum_filter1d<S, A, D>(
+    data: &ArrayBase<S, D>,
+    size: usize,
+    axis: Axis,
+    mode: BorderMode<A>,
+    origin: isize,
+) -> Array<A, D>
+where
+    S: Data<Elem = A>,
+    A: Copy + Num + PartialOrd + ScalarOperand + FromPrimitive + Display,
+    D: Dimension,
+{
+    if size == 0 {
+        panic!("Incorrect filter size (0)");
+    }
+    if size == 1 {
+        return data.to_owned();
+    }
+
+    let size1 = size / 2;
+    let size2 = size - size1 - 1;
+    let mode = mode.to_pad_mode();
+    let n = data.len_of(axis);
+    let pad = vec![origin_check(size, origin, size1, size2)];
+    let mut buffer = Array1::from_elem(n + pad[0][0] + pad[0][1], mode.init());
+
+    #[derive(Copy, Clone, Debug, PartialEq)]
+    struct Pair<A> {
+        val: A,
+        death: usize,
+    }
+    let mut ring = VecDeque::<Pair<A>>::with_capacity(size);
+
+    let mut output = data.to_owned();
+    Zip::from(data.lanes(axis)).and(output.lanes_mut(axis)).for_each(|input, mut o| {
+        pad_to(&input, &pad, mode, &mut buffer);
+        let buffer = buffer.as_slice_memory_order().unwrap();
+
+        let mut o_idx = 0;
+        ring.push_back(Pair { val: buffer[0], death: size });
+        for (&v, i) in buffer[1..].iter().zip(1..) {
+            if ring[0].death == i {
+                ring.pop_front().unwrap();
+            }
+
+            if v <= ring[0].val {
+                ring[0] = Pair { val: v, death: size + i };
+                while ring.len() > 1 {
+                    ring.pop_back().unwrap();
+                }
+            } else {
+                while ring.back().unwrap().val >= v {
+                    ring.pop_back().unwrap();
+                }
+                ring.push_back(Pair { val: v, death: size + i });
+            }
+            if i >= size - 1 {
+                o[o_idx] = ring[0].val;
+                o_idx += 1;
+            }
+        }
+        ring.pop_back();
+    });
+    output
 }
 
 /// Gaussian filter for n-dimensional arrays.

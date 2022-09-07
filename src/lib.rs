@@ -13,7 +13,7 @@ mod pad;
 
 pub use filters::{
     convolve, convolve1d, correlate, correlate1d, gaussian_filter, gaussian_filter1d,
-    median_filter, BorderMode,
+    median_filter, minimum_filter1d, BorderMode,
 };
 pub use interpolation::{spline_filter, spline_filter1d};
 pub use measurements::{label, label_histogram, largest_connected_components, most_frequent_label};
