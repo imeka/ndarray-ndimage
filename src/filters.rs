@@ -388,12 +388,41 @@ where
     new_mask
 }
 
+/// Calculate a 1-D maximum filter along the given axis.
+///
+/// The lines of the array along the given axis are filtered with a maximum filter of given size.
+///
+/// * `data` - The input N-D data.
+/// * `size` - Length along which to calculate 1D maximum.
+/// * `axis` - The axis of input along which to calculate.
+/// * `mode` - Method that will be used to select the padded values. See the
+///   [`CorrelateMode`](crate::CorrelateMode) enum for more information.
+/// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
+///   centers the filter over the pixel, with positive values shifting the filter to the left, and
+///   negative ones to the right.
+pub fn maximum_filter1d<S, A, D>(
+    data: &ArrayBase<S, D>,
+    size: usize,
+    axis: Axis,
+    mode: BorderMode<A>,
+    origin: isize,
+) -> Array<A, D>
+where
+    S: Data<Elem = A>,
+    A: Copy + Num + PartialOrd + ScalarOperand + FromPrimitive + Display,
+    D: Dimension,
+{
+    let lower = |a, b| a <= b;
+    let higher = |a, b| a >= b;
+    min_or_max_filter(data, size, axis, mode, origin, higher, lower)
+}
+
 /// Calculate a 1-D minimum filter along the given axis.
 ///
 /// The lines of the array along the given axis are filtered with a minimum filter of given size.
 ///
 /// * `data` - The input N-D data.
-/// * `size` - Length along which to calculate 1D minimum
+/// * `size` - Length along which to calculate 1D minimum.
 /// * `axis` - The axis of input along which to calculate.
 /// * `mode` - Method that will be used to select the padded values. See the
 ///   [`CorrelateMode`](crate::CorrelateMode) enum for more information.
@@ -411,6 +440,27 @@ where
     S: Data<Elem = A>,
     A: Copy + Num + PartialOrd + ScalarOperand + FromPrimitive + Display,
     D: Dimension,
+{
+    let lower = |a, b| a <= b;
+    let higher = |a, b| a >= b;
+    min_or_max_filter(data, size, axis, mode, origin, lower, higher)
+}
+
+fn min_or_max_filter<S, A, D, F1, F2>(
+    data: &ArrayBase<S, D>,
+    size: usize,
+    axis: Axis,
+    mode: BorderMode<A>,
+    origin: isize,
+    f1: F1,
+    f2: F2,
+) -> Array<A, D>
+where
+    S: Data<Elem = A>,
+    A: Copy + Num + PartialOrd + ScalarOperand + FromPrimitive + Display,
+    D: Dimension,
+    F1: Fn(A, A) -> bool,
+    F2: Fn(A, A) -> bool,
 {
     if size == 0 {
         panic!("Incorrect filter size (0)");
@@ -445,13 +495,13 @@ where
                 ring.pop_front().unwrap();
             }
 
-            if v <= ring[0].val {
+            if f1(v, ring[0].val) {
                 ring[0] = Pair { val: v, death: size + i };
                 while ring.len() > 1 {
                     ring.pop_back().unwrap();
                 }
             } else {
-                while ring.back().unwrap().val >= v {
+                while f2(ring.back().unwrap().val, v) {
                     ring.pop_back().unwrap();
                 }
                 ring.push_back(Pair { val: v, death: size + i });
