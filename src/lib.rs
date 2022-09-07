@@ -12,8 +12,10 @@ mod morphology;
 mod pad;
 
 pub use filters::{
-    convolve, convolve1d, correlate, correlate1d, gaussian_filter, gaussian_filter1d,
-    maximum_filter1d, median_filter, minimum_filter1d, BorderMode,
+    con_corr::{convolve, convolve1d, correlate, correlate1d},
+    gaussian_filter, gaussian_filter1d, median_filter,
+    min_max::{maximum_filter1d, maximum_filter1d_to, minimum_filter1d, minimum_filter1d_to},
+    BorderMode,
 };
 pub use interpolation::{spline_filter, spline_filter1d};
 pub use measurements::{label, label_histogram, largest_connected_components, most_frequent_label};
