@@ -420,7 +420,7 @@ fn test_median_filter() {
 }
 
 #[test] // Results verified with SciPy. (v1.9.0)
-fn test_minimum_filter1d() {
+fn test_minmax_filter() {
     // Even tests
     let a = arr1(&[2, 8, 0, 4, 1, 9, 9, 0]);
     assert_eq!(
@@ -434,6 +434,18 @@ fn test_minimum_filter1d() {
     assert_eq!(
         minimum_filter1d(&a, 4, Axis(0), BorderMode::Reflect, 0),
         arr1(&[2, 0, 0, 0, 0, 1, 0, 0])
+    );
+    assert_eq!(
+        maximum_filter1d(&a, 2, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[2, 8, 8, 4, 4, 9, 9, 9])
+    );
+    assert_eq!(
+        maximum_filter1d(&a, 3, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[8, 8, 8, 4, 9, 9, 9, 9])
+    );
+    assert_eq!(
+        maximum_filter1d(&a, 4, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[8, 8, 8, 8, 9, 9, 9, 9])
     );
 
     // Odd tests
@@ -450,27 +462,6 @@ fn test_minimum_filter1d() {
         minimum_filter1d(&a, 4, Axis(0), BorderMode::Reflect, 0),
         arr1(&[2, 0, 0, 0, -1, -1, -1, -1, 0])
     );
-}
-
-#[test] // Results verified with SciPy. (v1.9.0)
-fn test_maximum_filter1d() {
-    // Even tests
-    let a = arr1(&[2, 8, 0, 4, 1, 9, 9, 0]);
-    assert_eq!(
-        maximum_filter1d(&a, 2, Axis(0), BorderMode::Reflect, 0),
-        arr1(&[2, 8, 8, 4, 4, 9, 9, 9])
-    );
-    assert_eq!(
-        maximum_filter1d(&a, 3, Axis(0), BorderMode::Reflect, 0),
-        arr1(&[8, 8, 8, 4, 9, 9, 9, 9])
-    );
-    assert_eq!(
-        maximum_filter1d(&a, 4, Axis(0), BorderMode::Reflect, 0),
-        arr1(&[8, 8, 8, 8, 9, 9, 9, 9])
-    );
-
-    // Odd tests
-    let a = arr1(&[2, 8, 0, 4, 1, -1, 9, 9, 0]);
     assert_eq!(
         maximum_filter1d(&a, 2, Axis(0), BorderMode::Reflect, 0),
         arr1(&[2, 8, 8, 4, 4, 1, 9, 9, 9])
