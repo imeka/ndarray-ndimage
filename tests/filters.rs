@@ -2,8 +2,8 @@ use approx::assert_relative_eq;
 use ndarray::{arr1, arr2, s, Array1, Axis};
 
 use ndarray_ndimage::{
-    convolve, convolve1d, correlate, correlate1d, gaussian_filter, median_filter, minimum_filter1d,
-    BorderMode, Mask,
+    convolve, convolve1d, correlate, correlate1d, gaussian_filter, maximum_filter1d, median_filter,
+    minimum_filter1d, BorderMode, Mask,
 };
 
 #[test] // Results verified with SciPy. (v1.9.0)
@@ -449,6 +449,39 @@ fn test_minimum_filter1d() {
     assert_eq!(
         minimum_filter1d(&a, 4, Axis(0), BorderMode::Reflect, 0),
         arr1(&[2, 0, 0, 0, -1, -1, -1, -1, 0])
+    );
+}
+
+#[test] // Results verified with SciPy. (v1.9.0)
+fn test_maximum_filter1d() {
+    // Even tests
+    let a = arr1(&[2, 8, 0, 4, 1, 9, 9, 0]);
+    assert_eq!(
+        maximum_filter1d(&a, 2, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[2, 8, 8, 4, 4, 9, 9, 9])
+    );
+    assert_eq!(
+        maximum_filter1d(&a, 3, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[8, 8, 8, 4, 9, 9, 9, 9])
+    );
+    assert_eq!(
+        maximum_filter1d(&a, 4, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[8, 8, 8, 8, 9, 9, 9, 9])
+    );
+
+    // Odd tests
+    let a = arr1(&[2, 8, 0, 4, 1, -1, 9, 9, 0]);
+    assert_eq!(
+        maximum_filter1d(&a, 2, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[2, 8, 8, 4, 4, 1, 9, 9, 9])
+    );
+    assert_eq!(
+        maximum_filter1d(&a, 3, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[8, 8, 8, 4, 4, 9, 9, 9, 9])
+    );
+    assert_eq!(
+        maximum_filter1d(&a, 4, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[8, 8, 8, 8, 4, 9, 9, 9, 9])
     );
 }
 
