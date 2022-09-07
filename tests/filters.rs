@@ -2,7 +2,8 @@ use approx::assert_relative_eq;
 use ndarray::{arr1, arr2, s, Array1, Axis};
 
 use ndarray_ndimage::{
-    convolve, convolve1d, correlate, correlate1d, gaussian_filter, median_filter, BorderMode, Mask,
+    convolve, convolve1d, correlate, correlate1d, gaussian_filter, median_filter, minimum_filter1d,
+    BorderMode, Mask,
 };
 
 #[test] // Results verified with SciPy. (v1.9.0)
@@ -416,6 +417,39 @@ fn test_median_filter() {
     gt[(2, 0, 0)] = true;
     mask[(1, 1, 1)] = true;
     assert_eq!(median_filter(&mask.view()), gt);
+}
+
+#[test] // Results verified with SciPy. (v1.9.0)
+fn test_minimum_filter1d() {
+    // Even tests
+    let a = arr1(&[2, 8, 0, 4, 1, 9, 9, 0]);
+    assert_eq!(
+        minimum_filter1d(&a, 2, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[2, 2, 0, 0, 1, 1, 9, 0])
+    );
+    assert_eq!(
+        minimum_filter1d(&a, 3, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[2, 0, 0, 0, 1, 1, 0, 0])
+    );
+    assert_eq!(
+        minimum_filter1d(&a, 4, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[2, 0, 0, 0, 0, 1, 0, 0])
+    );
+
+    // Odd tests
+    let a = arr1(&[2, 8, 0, 4, 1, -1, 9, 9, 0]);
+    assert_eq!(
+        minimum_filter1d(&a, 2, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[2, 2, 0, 0, 1, -1, -1, 9, 0])
+    );
+    assert_eq!(
+        minimum_filter1d(&a, 3, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[2, 0, 0, 0, -1, -1, -1, 0, 0])
+    );
+    assert_eq!(
+        minimum_filter1d(&a, 4, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[2, 0, 0, 0, -1, -1, -1, -1, 0])
+    );
 }
 
 #[test] // Results verified with SciPy. (v1.9.0)
