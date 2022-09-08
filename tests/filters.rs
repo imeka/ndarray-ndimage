@@ -3,7 +3,7 @@ use ndarray::{arr1, arr2, s, Array1, Axis};
 
 use ndarray_ndimage::{
     convolve, convolve1d, correlate, correlate1d, gaussian_filter, maximum_filter1d, median_filter,
-    minimum_filter1d, BorderMode, Mask,
+    minimum_filter, minimum_filter1d, BorderMode, Mask,
 };
 
 #[test] // Results verified with SciPy. (v1.9.0)
@@ -473,6 +473,34 @@ fn test_minmax_filter() {
     assert_eq!(
         maximum_filter1d(&a, 4, Axis(0), BorderMode::Reflect, 0),
         arr1(&[8, 8, 8, 8, 4, 9, 9, 9, 9])
+    );
+
+    let matrix = arr2(&[
+        [1.5, 2.3, 0.7, 1.1, 6.0, 1.7],
+        [0.5, 1.3, 0.0, 0.1, 1.2, 0.7],
+        [0.4, 1.3, 2.7, 0.1, 0.8, 0.1],
+        [2.1, 0.1, 0.7, 0.1, 1.0, 2.8],
+        [5.7, 4.0, 1.8, 9.1, 4.8, 2.7],
+    ]);
+    assert_relative_eq!(
+        minimum_filter(&matrix, 2, BorderMode::Reflect, 0),
+        arr2(&[
+            [1.5, 1.5, 0.7, 0.7, 1.1, 1.7],
+            [0.5, 0.5, 0.0, 0.0, 0.1, 0.7],
+            [0.4, 0.4, 0.0, 0.0, 0.1, 0.1],
+            [0.4, 0.1, 0.1, 0.1, 0.1, 0.1],
+            [2.1, 0.1, 0.1, 0.1, 0.1, 1.0]
+        ])
+    );
+    assert_relative_eq!(
+        minimum_filter(&matrix, 3, BorderMode::Reflect, 0),
+        arr2(&[
+            [0.5, 0.0, 0.0, 0.0, 0.1, 0.7],
+            [0.4, 0.0, 0.0, 0.0, 0.1, 0.1],
+            [0.1, 0.0, 0.0, 0.0, 0.1, 0.1],
+            [0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+            [0.1, 0.1, 0.1, 0.1, 0.1, 1.0]
+        ])
     );
 }
 
