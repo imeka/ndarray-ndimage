@@ -1,5 +1,5 @@
 use approx::assert_relative_eq;
-use ndarray::{arr1, arr2, s, Array1, Axis};
+use ndarray::{arr1, arr2, s, Array1, Array2, Axis};
 
 use ndarray_ndimage::{
     convolve, convolve1d, correlate, correlate1d, gaussian_filter, maximum_filter,
@@ -436,6 +436,10 @@ fn test_minmax_filter() {
         arr1(&[2, 0, 0, 0, 0, 1, 0, 0])
     );
     assert_eq!(
+        minimum_filter1d(&a, 6, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[0, 0, 0, 0, 0, 0, 0, 0])
+    );
+    assert_eq!(
         maximum_filter1d(&a, 2, Axis(0), BorderMode::Reflect, 0),
         arr1(&[2, 8, 8, 4, 4, 9, 9, 9])
     );
@@ -446,6 +450,10 @@ fn test_minmax_filter() {
     assert_eq!(
         maximum_filter1d(&a, 4, Axis(0), BorderMode::Reflect, 0),
         arr1(&[8, 8, 8, 8, 9, 9, 9, 9])
+    );
+    assert_eq!(
+        maximum_filter1d(&a, 6, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[8, 8, 8, 9, 9, 9, 9, 9])
     );
 
     // Odd tests
@@ -463,6 +471,10 @@ fn test_minmax_filter() {
         arr1(&[2, 0, 0, 0, -1, -1, -1, -1, 0])
     );
     assert_eq!(
+        minimum_filter1d(&a, 6, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[0, 0, 0, -1, -1, -1, -1, -1, -1])
+    );
+    assert_eq!(
         maximum_filter1d(&a, 2, Axis(0), BorderMode::Reflect, 0),
         arr1(&[2, 8, 8, 4, 4, 1, 9, 9, 9])
     );
@@ -473,6 +485,10 @@ fn test_minmax_filter() {
     assert_eq!(
         maximum_filter1d(&a, 4, Axis(0), BorderMode::Reflect, 0),
         arr1(&[8, 8, 8, 8, 4, 9, 9, 9, 9])
+    );
+    assert_eq!(
+        maximum_filter1d(&a, 6, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[8, 8, 8, 8, 9, 9, 9, 9, 9])
     );
 
     let matrix = arr2(&[
@@ -503,6 +519,10 @@ fn test_minmax_filter() {
         ])
     );
     assert_relative_eq!(
+        minimum_filter(&matrix, 6, BorderMode::Reflect, 0),
+        Array2::zeros(matrix.dim())
+    );
+    assert_relative_eq!(
         maximum_filter(&matrix, 2, BorderMode::Reflect, 0),
         arr2(&[
             [1.5, 2.3, 2.3, 1.1, 6.0, 6.0],
@@ -520,6 +540,16 @@ fn test_minmax_filter() {
             [2.1, 2.7, 2.7, 2.7, 2.8, 2.8],
             [5.7, 5.7, 9.1, 9.1, 9.1, 4.8],
             [5.7, 5.7, 9.1, 9.1, 9.1, 4.8]
+        ])
+    );
+    assert_relative_eq!(
+        maximum_filter(&matrix, 6, BorderMode::Reflect, 0),
+        arr2(&[
+            [2.7, 2.7, 6.0, 6.0, 6.0, 6.0],
+            [2.7, 2.7, 6.0, 6.0, 6.0, 6.0],
+            [5.7, 9.1, 9.1, 9.1, 9.1, 9.1],
+            [5.7, 9.1, 9.1, 9.1, 9.1, 9.1],
+            [5.7, 9.1, 9.1, 9.1, 9.1, 9.1]
         ])
     );
 }

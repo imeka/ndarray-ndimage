@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use ndarray::{Array, Array1, ArrayBase, Axis, Data, Dimension, ScalarOperand, Zip};
 use num_traits::{FromPrimitive, Num};
 
-use crate::{filters::origin_check, pad_to, BorderMode};
+use crate::{array_like, filters::origin_check, pad_to, BorderMode};
 
 /// Calculate a 1-D maximum filter along the given axis.
 ///
@@ -59,12 +59,12 @@ where
     // * The process is applied for each axis on the result of the previous process.
     // * It's uglier (using &mut) but much faster than allocating for each axis.
     let mut data = data.to_owned();
-    let mut output = data.to_owned();
+    let mut output = array_like(&data, data.dim(), A::zero());
 
     for d in 0..data.ndim() {
         maximum_filter1d_to(&data, size, Axis(d), mode, origin, &mut output);
         if d < data.ndim() - 1 {
-            data.assign(&output);
+            std::mem::swap(&mut output, &mut data);
         }
     }
     output
@@ -144,12 +144,12 @@ where
     // * The process is applied for each axis on the result of the previous process.
     // * It's uglier (using &mut) but much faster than allocating for each axis.
     let mut data = data.to_owned();
-    let mut output = data.to_owned();
+    let mut output = array_like(&data, data.dim(), A::zero());
 
     for d in 0..data.ndim() {
         minimum_filter1d_to(&data, size, Axis(d), mode, origin, &mut output);
         if d < data.ndim() - 1 {
-            data.assign(&output);
+            std::mem::swap(&mut output, &mut data);
         }
     }
     output
@@ -175,9 +175,10 @@ pub fn minimum_filter1d_to<S, A, D>(
     min_or_max_filter(data, size, axis, mode, origin, lower, higher, output);
 }
 
+/// MINLIST algorithm from Richard Harter
 fn min_or_max_filter<S, A, D, F1, F2>(
     data: &ArrayBase<S, D>,
-    size: usize,
+    filter_size: usize,
     axis: Axis,
     mode: BorderMode<A>,
     origin: isize,
@@ -191,19 +192,19 @@ fn min_or_max_filter<S, A, D, F1, F2>(
     F1: Fn(A, A) -> bool,
     F2: Fn(A, A) -> bool,
 {
-    if size == 0 {
+    if filter_size == 0 {
         panic!("Incorrect filter size (0)");
     }
-    if size == 1 {
+    if filter_size == 1 {
         output.assign(data);
         return;
     }
 
-    let size1 = size / 2;
-    let size2 = size - size1 - 1;
+    let size1 = filter_size / 2;
+    let size2 = filter_size - size1 - 1;
     let mode = mode.to_pad_mode();
     let n = data.len_of(axis);
-    let pad = vec![origin_check(size, origin, size1, size2)];
+    let pad = vec![origin_check(filter_size, origin, size1, size2)];
     let mut buffer = Array1::from_elem(n + pad[0][0] + pad[0][1], mode.init());
 
     #[derive(Copy, Clone, PartialEq)]
@@ -211,21 +212,24 @@ fn min_or_max_filter<S, A, D, F1, F2>(
         val: A,
         death: usize,
     }
-    let mut ring = VecDeque::<Pair<A>>::with_capacity(size);
+    let mut ring = VecDeque::<Pair<A>>::with_capacity(filter_size);
 
+    // The original algorihtm has been modfied to fit the `VecDeque` which makes `minpair` and
+    // `last` useless. Moreover, we need to clear the `ring` at the end because there's always
+    // at least one element left. There can be more with greater `filter_size`.
     Zip::from(data.lanes(axis)).and(output.lanes_mut(axis)).for_each(|input, mut o| {
         pad_to(&input, &pad, mode, &mut buffer);
         let buffer = buffer.as_slice_memory_order().unwrap();
 
         let mut o_idx = 0;
-        ring.push_back(Pair { val: buffer[0], death: size });
+        ring.push_back(Pair { val: buffer[0], death: filter_size });
         for (&v, i) in buffer[1..].iter().zip(1..) {
             if ring[0].death == i {
                 ring.pop_front().unwrap();
             }
 
             if f1(v, ring[0].val) {
-                ring[0] = Pair { val: v, death: size + i };
+                ring[0] = Pair { val: v, death: filter_size + i };
                 while ring.len() > 1 {
                     ring.pop_back().unwrap();
                 }
@@ -233,17 +237,13 @@ fn min_or_max_filter<S, A, D, F1, F2>(
                 while f2(ring.back().unwrap().val, v) {
                     ring.pop_back().unwrap();
                 }
-                ring.push_back(Pair { val: v, death: size + i });
+                ring.push_back(Pair { val: v, death: filter_size + i });
             }
-            if i >= size - 1 {
+            if i >= filter_size - 1 {
                 o[o_idx] = ring[0].val;
                 o_idx += 1;
             }
         }
-        ring.pop_back();
-        if !ring.is_empty() {
-            o[o_idx - 1] = ring.pop_back().unwrap().val;
-        }
-        assert!(ring.is_empty());
+        ring.clear();
     });
 }
