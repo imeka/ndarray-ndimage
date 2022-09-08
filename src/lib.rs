@@ -13,7 +13,8 @@ mod pad;
 
 pub use filters::{
     con_corr::{convolve, convolve1d, correlate, correlate1d},
-    gaussian_filter, gaussian_filter1d, median_filter,
+    gaussian::{gaussian_filter, gaussian_filter1d},
+    median::median_filter,
     min_max::{
         maximum_filter, maximum_filter1d, maximum_filter1d_to, minimum_filter, minimum_filter1d,
         minimum_filter1d_to,
