@@ -83,6 +83,42 @@ where
     output
 }
 
+/// Calculate a multidimensional minimum filter.
+///
+/// * `data` - The input N-D data.
+/// * `size` - Length along which to calculate 1D minimum.
+/// * `mode` - Method that will be used to select the padded values. See the
+///   [`CorrelateMode`](crate::CorrelateMode) enum for more information.
+/// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
+///   centers the filter over the pixel, with positive values shifting the filter to the left, and
+///   negative ones to the right.
+pub fn minimum_filter<S, A, D>(
+    data: &ArrayBase<S, D>,
+    size: usize,
+    mode: BorderMode<A>,
+    origin: isize,
+) -> Array<A, D>
+where
+    S: Data<Elem = A>,
+    A: Copy + Num + PartialOrd + ScalarOperand + FromPrimitive,
+    D: Dimension,
+{
+    // We need 2 buffers because
+    // * We're reading neignbors so we can't read and write on the same location.
+    // * The process is applied for each axis on the result of the previous process.
+    // * It's uglier (using &mut) but much faster than allocating for each axis.
+    let mut data = data.to_owned();
+    let mut output = data.to_owned();
+
+    for d in 0..data.ndim() {
+        minimum_filter1d_to(&data, size, Axis(d), mode, origin, &mut output);
+        if d < data.ndim() - 1 {
+            data.assign(&output);
+        }
+    }
+    output
+}
+
 /// Calculate a 1-D minimum filter along the given axis.
 ///
 /// See `minimum_filter1d`.
@@ -134,7 +170,7 @@ fn min_or_max_filter<S, A, D, F1, F2>(
     let pad = vec![origin_check(size, origin, size1, size2)];
     let mut buffer = Array1::from_elem(n + pad[0][0] + pad[0][1], mode.init());
 
-    #[derive(Copy, Clone, Debug, PartialEq)]
+    #[derive(Copy, Clone, PartialEq)]
     struct Pair<A> {
         val: A,
         death: usize,
@@ -169,5 +205,9 @@ fn min_or_max_filter<S, A, D, F1, F2>(
             }
         }
         ring.pop_back();
+        if !ring.is_empty() {
+            o[o_idx - 1] = ring.pop_back().unwrap().val;
+        }
+        assert!(ring.is_empty());
     });
 }
