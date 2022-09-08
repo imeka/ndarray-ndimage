@@ -23,13 +23,14 @@ where
     // * The process is applied for each axis on the result of the previous process.
     // * It's uglier (using &mut) but much faster than allocating for each axis.
     let mut data = data.to_owned();
-    let mut output = data.to_owned();
+    let mut output = array_like(&data, data.dim(), A::zero());
 
     let weights = weights(sigma, truncate);
     for d in 0..data.ndim() {
         _gaussian_filter1d(&data, &weights, Axis(d), &mut output);
-        // TODO No need to do this at last iter
-        data.assign(&output);
+        if d != data.ndim() - 1 {
+            std::mem::swap(&mut output, &mut data);
+        }
     }
     output
 }
