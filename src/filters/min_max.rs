@@ -34,6 +34,42 @@ where
     output
 }
 
+/// Calculate a multidimensional maximum filter.
+///
+/// * `data` - The input N-D data.
+/// * `size` - Length along which to calculate 1D maximum.
+/// * `mode` - Method that will be used to select the padded values. See the
+///   [`CorrelateMode`](crate::CorrelateMode) enum for more information.
+/// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
+///   centers the filter over the pixel, with positive values shifting the filter to the left, and
+///   negative ones to the right.
+pub fn maximum_filter<S, A, D>(
+    data: &ArrayBase<S, D>,
+    size: usize,
+    mode: BorderMode<A>,
+    origin: isize,
+) -> Array<A, D>
+where
+    S: Data<Elem = A>,
+    A: Copy + Num + PartialOrd + ScalarOperand + FromPrimitive,
+    D: Dimension,
+{
+    // We need 2 buffers because
+    // * We're reading neignbors so we can't read and write on the same location.
+    // * The process is applied for each axis on the result of the previous process.
+    // * It's uglier (using &mut) but much faster than allocating for each axis.
+    let mut data = data.to_owned();
+    let mut output = data.to_owned();
+
+    for d in 0..data.ndim() {
+        maximum_filter1d_to(&data, size, Axis(d), mode, origin, &mut output);
+        if d < data.ndim() - 1 {
+            data.assign(&output);
+        }
+    }
+    output
+}
+
 /// Calculate a 1-D maximum filter along the given axis.
 ///
 /// See `maximum_filter1d`.
