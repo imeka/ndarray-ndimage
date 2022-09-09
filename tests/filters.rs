@@ -558,13 +558,13 @@ fn test_minmax_filter() {
 fn test_gaussian_filter_1d() {
     let mut a: Array1<f32> = (0..7).map(|v| v as f32).collect();
     assert_relative_eq!(
-        gaussian_filter(&a, 1.0, 4),
+        gaussian_filter(&a, 1.0, 0, 4),
         arr1(&[0.42704096, 1.0679559, 2.0048335, 3.0, 3.9951665, 4.932044, 5.572959]),
         epsilon = 1e-5
     );
     a[0] = 0.7;
     assert_relative_eq!(
-        gaussian_filter(&a.view(), 2.0, 3),
+        gaussian_filter(&a.view(), 2.0, 0, 3),
         arr1(&[1.4193099, 1.737984, 2.3200142, 3.0642939, 3.8351974, 4.4778357, 4.845365]),
         epsilon = 1e-5
     );
@@ -576,7 +576,7 @@ fn test_gaussian_filter_2d() {
     let mut a = a.into_shape((5, 7)).unwrap();
     a[(0, 0)] = 17.0;
     assert_relative_eq!(
-        gaussian_filter(&a, 1.0, 4),
+        gaussian_filter(&a, 1.0, 0, 4),
         arr2(&[
             [13.815777, 11.339161, 10.62479, 12.028319, 13.970364, 15.842661, 17.12449],
             [19.028267, 18.574514, 19.253122, 20.97248, 22.940516, 24.813597, 26.095427],
@@ -590,7 +590,7 @@ fn test_gaussian_filter_2d() {
     let mut a = a.into_shape((6, 7)).unwrap();
     a[(0, 0)] = 8.5;
     assert_relative_eq!(
-        gaussian_filter(&a, 1.0, 2),
+        gaussian_filter(&a, 1.0, 0, 2),
         arr2(&[
             [10.078889, 9.458512, 10.006921, 11.707343, 13.707343, 15.598366, 16.892008],
             [17.220367, 17.630152, 18.90118, 20.76284, 22.76284, 24.653864, 25.947506],
@@ -606,7 +606,7 @@ fn test_gaussian_filter_2d() {
     let mut a = a.into_shape((8, 7)).unwrap();
     a[(0, 0)] = 18.2;
     assert_relative_eq!(
-        gaussian_filter(&a, 1.5, 3),
+        gaussian_filter(&a, 1.5, 0, 3),
         arr2(&[
             [16.712738, 16.30507, 16.362633, 17.34964, 18.918924, 20.453388, 21.402458],
             [22.053278, 22.092232, 22.654442, 23.931578, 25.60057, 27.156698, 28.1087],
@@ -628,7 +628,7 @@ fn test_gaussian_filter_3d() {
     a[(0, 0, 0)] = 0.2;
     a[(3, 3, 3)] = 1.0;
 
-    let g = gaussian_filter(&a, 1.8, 4);
+    let g = gaussian_filter(&a, 1.8, 0, 4);
     assert_relative_eq!(
         g.slice(s![0, .., ..]),
         arr2(&[
@@ -666,5 +666,5 @@ fn test_gaussian_filter_3d() {
 fn test_gaussian_filter_panic() {
     let a: Array1<f32> = (0..7).map(|v| v as f32).collect();
 
-    let _ = gaussian_filter(&a, 2.0, 4);
+    let _ = gaussian_filter(&a, 2.0, 0, 4);
 }

@@ -1,4 +1,4 @@
-use ndarray::{Array, ArrayBase, Axis, Data, Dimension};
+use ndarray::{s, Array, Array1, Array2, ArrayBase, Axis, Data, Dimension, Zip};
 use num_traits::{Float, FromPrimitive};
 
 use crate::array_like;
@@ -9,10 +9,18 @@ use crate::array_like;
 ///
 /// * `data` - The input N-D data.
 /// * `sigma` - Standard deviation for Gaussian kernel.
+/// * `order` - The order of the filter along all axes. An order of 0 corresponds to a convolution
+///   with a Gaussian kernel. A positive order corresponds to a convolution with that derivative of
+///   a Gaussian.
 /// * `truncate` - Truncate the filter at this many standard deviations.
 ///
 /// **Panics** if one of the axis' lengths is lower than `truncate * sigma + 0.5`.
-pub fn gaussian_filter<S, A, D>(data: &ArrayBase<S, D>, sigma: A, truncate: usize) -> Array<A, D>
+pub fn gaussian_filter<S, A, D>(
+    data: &ArrayBase<S, D>,
+    sigma: A,
+    order: usize,
+    truncate: usize,
+) -> Array<A, D>
 where
     S: Data<Elem = A>,
     A: Float + FromPrimitive + 'static,
@@ -25,7 +33,7 @@ where
     let mut data = data.to_owned();
     let mut output = array_like(&data, data.dim(), A::zero());
 
-    let weights = weights(sigma, truncate);
+    let weights = weights(sigma, order, truncate);
     for d in 0..data.ndim() {
         _gaussian_filter1d(&data, &weights, Axis(d), &mut output);
         if d != data.ndim() - 1 {
@@ -41,6 +49,9 @@ where
 ///
 /// * `data` - The input N-D data.
 /// * `sigma` - Standard deviation for Gaussian kernel.
+/// * `order` - The order of the filter along all axes. An order of 0 corresponds to a convolution
+///   with a Gaussian kernel. A positive order corresponds to a convolution with that derivative of
+///   a Gaussian.
 /// * `truncate` - Truncate the filter at this many standard deviations.
 /// * `axis` - The axis of input along which to calculate.
 ///
@@ -48,15 +59,16 @@ where
 pub fn gaussian_filter1d<S, A, D>(
     data: &ArrayBase<S, D>,
     sigma: A,
+    order: usize,
     truncate: usize,
     axis: Axis,
 ) -> Array<A, D>
 where
     S: Data<Elem = A>,
-    A: Float + FromPrimitive,
+    A: Float + FromPrimitive + 'static,
     D: Dimension,
 {
-    let weights = weights(sigma, truncate);
+    let weights = weights(sigma, order, truncate);
     let mut output = array_like(&data, data.dim(), A::zero());
     _gaussian_filter1d(data, &weights, axis, &mut output);
     output
@@ -91,6 +103,7 @@ fn _gaussian_filter1d<S, A, D>(
         // TODO Remove this unsafe! This is easy to remove but I wasn't able to remove it and stay
         // fast. For more information, please read the thread at
         // https://users.rust-lang.org/t/scipy-gaussian-filter-port/62661
+        // TODO In all cases, we're supposed to call `correlate` (!)
         unsafe {
             // Prepare the 'reflect' buffer
             let mut pos_b = 0;
@@ -132,18 +145,50 @@ fn _gaussian_filter1d<S, A, D>(
 }
 
 /// Computes a 1-D Gaussian convolution kernel.
-fn weights<A>(sigma: A, truncate: usize) -> Vec<A>
+fn weights<A>(sigma: A, order: usize, truncate: usize) -> Vec<A>
 where
-    A: Float + FromPrimitive,
+    A: Float + FromPrimitive + 'static,
 {
     // Make the radius of the filter equal to truncate standard deviations
     let radius = (A::from(truncate).unwrap() * sigma + A::from(0.5).unwrap()).to_isize().unwrap();
 
     let sigma2 = sigma.powi(2);
-    let m05 = A::from(-0.5).unwrap();
-    let mut phi_x: Vec<_> =
-        (-radius..=radius).map(|x| (m05 / sigma2 * A::from(x.pow(2)).unwrap()).exp()).collect();
-    let sum = phi_x.iter().fold(A::zero(), |acc, &v| acc + v);
-    phi_x.iter_mut().for_each(|v| *v = *v / sum);
-    phi_x
+    let phi_x = {
+        let m05 = A::from(-0.5).unwrap();
+        let mut phi_x: Vec<_> =
+            (-radius..=radius).map(|x| (m05 / sigma2 * A::from(x.pow(2)).unwrap()).exp()).collect();
+        let sum = phi_x.iter().fold(A::zero(), |acc, &v| acc + v);
+        phi_x.iter_mut().for_each(|v| *v = *v / sum);
+        phi_x
+    };
+
+    if order == 0 {
+        phi_x
+    } else {
+        let mut q = Array1::zeros(order + 1);
+        q[0] = A::one();
+
+        let q_d = {
+            let mut q_d = Array2::<A>::zeros((order + 1, order + 1));
+            for (e, i) in q_d.slice_mut(s![..order, 1..]).diag_mut().iter_mut().zip(1..) {
+                *e = A::from(i).unwrap();
+            }
+
+            q_d.slice_mut(s![1.., ..order]).diag_mut().fill(-sigma2.recip());
+            q_d
+        };
+
+        for _ in 0..order {
+            q = q_d.dot(&q);
+        }
+
+        (-radius..=radius)
+            .zip(phi_x.into_iter())
+            .map(|(x, phi_x)| {
+                Zip::indexed(&q)
+                    .fold(A::zero(), |acc, i, &q| acc + q * A::from(x.pow(i as u32)).unwrap())
+                    * phi_x
+            })
+            .collect()
+    }
 }
