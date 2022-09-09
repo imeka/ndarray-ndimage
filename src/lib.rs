@@ -20,6 +20,7 @@ pub use filters::{
         minimum_filter1d_to,
     },
     prewitt::prewitt,
+    sobel::sobel,
     BorderMode,
 };
 pub use interpolation::{spline_filter, spline_filter1d};
