@@ -19,6 +19,7 @@ pub use filters::{
         maximum_filter, maximum_filter1d, maximum_filter1d_to, minimum_filter, minimum_filter1d,
         minimum_filter1d_to,
     },
+    prewitt::prewitt,
     BorderMode,
 };
 pub use interpolation::{spline_filter, spline_filter1d};
