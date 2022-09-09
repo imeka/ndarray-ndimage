@@ -1,9 +1,9 @@
 use approx::assert_relative_eq;
-use ndarray::{arr1, arr2, s, Array1, Axis};
+use ndarray::{arr1, arr2, s, Array1, Array2, Axis};
 
 use ndarray_ndimage::{
-    convolve, convolve1d, correlate, correlate1d, gaussian_filter, median_filter, CorrelateMode,
-    Mask,
+    convolve, convolve1d, correlate, correlate1d, gaussian_filter, maximum_filter,
+    maximum_filter1d, median_filter, minimum_filter, minimum_filter1d, BorderMode, Mask,
 };
 
 #[test] // Results verified with SciPy. (v1.9.0)
@@ -19,53 +19,47 @@ fn test_convolve1d() {
     ]);
 
     assert_eq!(
-        convolve1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), CorrelateMode::Reflect, -1),
+        convolve1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), BorderMode::Reflect, -1),
         arr1(&[8.0, 14.0, 24.0, 4.0, 13.0, 12.0, 36.0, 27.0])
     );
     assert_eq!(
-        convolve1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), CorrelateMode::Reflect, 0),
+        convolve1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), BorderMode::Reflect, 0),
         arr1(&[14.0, 24.0, 4.0, 13.0, 12.0, 36.0, 27.0, 0.0])
     );
     assert_eq!(
-        convolve1d(&arr, &arr1(&[1.0, 3.0, 2.0]), Axis(0), CorrelateMode::Reflect, 0),
+        convolve1d(&arr, &arr1(&[1.0, 3.0, 2.0]), Axis(0), BorderMode::Reflect, 0),
         arr1(&[18.0, 28.0, 20.0, 13.0, 20.0, 38.0, 45.0, 18.0])
     );
     assert_eq!(
-        convolve1d(&arr, &arr1(&[1.0, 2.0, 0.5, 2.0]), Axis(0), CorrelateMode::Reflect, 0),
+        convolve1d(&arr, &arr1(&[1.0, 2.0, 0.5, 2.0]), Axis(0), BorderMode::Reflect, 0),
         arr1(&[21.0, 12.0, 25.0, 13.0, 35.5, 24.5, 22.5, 27.0])
     );
 
     // Symmetric
     assert_eq!(
-        convolve1d(&arr, &arr1(&[0.5, 1.5, 0.5]), Axis(0), CorrelateMode::Reflect, 0),
+        convolve1d(&arr, &arr1(&[0.5, 1.5, 0.5]), Axis(0), BorderMode::Reflect, 0),
         arr1(&[8.0, 13.0, 6.0, 6.5, 8.0, 18.5, 18.0, 4.5])
     );
 
     // Anti-symmetric
     assert_eq!(
-        convolve1d(&arr, &arr1(&[0.5, 1.5, 1.0, -1.5, -0.5]), Axis(0), CorrelateMode::Reflect, 0),
+        convolve1d(&arr, &arr1(&[0.5, 1.5, 1.0, -1.5, -0.5]), Axis(0), BorderMode::Reflect, 0),
         arr1(&[7.0, 6.0, -6.5, 6.0, 13.0, 19.0, -5.0, -13.5])
     );
 
     // Other modes and dimensions
     assert_relative_eq!(
-        convolve1d(
-            &arr_odd,
-            &arr1(&[1.0, 2.0, 0.5, 2.0]),
-            Axis(0),
-            CorrelateMode::Constant(0.5),
-            0
-        ),
+        convolve1d(&arr_odd, &arr1(&[1.0, 2.0, 0.5, 2.0]), Axis(0), BorderMode::Constant(0.5), 0),
         arr1(&[18.0, 12.0, 33.0, 29.0, 30.5, 23.0, 19.5]),
         epsilon = 1e-7,
     );
     assert_relative_eq!(
-        convolve1d(&arr_odd, &arr1(&[1.0, 3.0, 2.0]), Axis(0), CorrelateMode::Nearest, 0),
+        convolve1d(&arr_odd, &arr1(&[1.0, 3.0, 2.0]), Axis(0), BorderMode::Nearest, 0),
         arr1(&[18.0, 28.0, 20.0, 21.0, 44.0, 45.0, 18.0]),
         epsilon = 1e-7,
     );
     assert_relative_eq!(
-        convolve1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), CorrelateMode::Mirror, 0),
+        convolve1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), BorderMode::Mirror, 0),
         arr2(&[
             [6.8, 7.6, 3.2, 9.3, 19.7, 11.1],
             [2.8, 3.9, 0.1, 1.5, 4.3, 3.3],
@@ -76,7 +70,7 @@ fn test_convolve1d() {
         epsilon = 1e-7,
     );
     assert_relative_eq!(
-        convolve1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), CorrelateMode::Reflect, 0),
+        convolve1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), BorderMode::Reflect, 0),
         arr2(&[
             [6.8, 7.6, 3.2, 9.3, 19.7, 6.8],
             [2.8, 3.9, 0.1, 1.5, 4.3, 2.8],
@@ -87,7 +81,7 @@ fn test_convolve1d() {
         epsilon = 1e-7,
     );
     assert_relative_eq!(
-        convolve1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), CorrelateMode::Wrap, 0),
+        convolve1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), BorderMode::Wrap, 0),
         arr2(&[
             [6.8, 7.6, 3.2, 9.3, 19.7, 6.6],
             [2.8, 3.9, 0.1, 1.5, 4.3, 2.6],
@@ -115,53 +109,53 @@ fn test_correlate1d() {
 
     // Non-Symmetric
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), CorrelateMode::Reflect, 0),
+        correlate1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), BorderMode::Reflect, 0),
         arr1(&[8.0, 26.0, 8.0, 12.0, 7.0, 28.0, 36.0, 9.0])
     );
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 3.0, 2.0]), Axis(0), CorrelateMode::Reflect, 0),
+        correlate1d(&arr, &arr1(&[1.0, 3.0, 2.0]), Axis(0), BorderMode::Reflect, 0),
         arr1(&[24.0, 26.0, 16.0, 14.0, 25.0, 46.0, 36.0, 9.0])
     );
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 3.0, 2.0, 1.0]), Axis(0), CorrelateMode::Reflect, 0),
+        correlate1d(&arr, &arr1(&[1.0, 3.0, 2.0, 1.0]), Axis(0), BorderMode::Reflect, 0),
         arr1(&[26.0, 24.0, 30.0, 17.0, 23.0, 34.0, 46.0, 36.0])
     );
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.5, 3.0, 1.5, 0.5]), Axis(0), CorrelateMode::Reflect, 0),
+        correlate1d(&arr, &arr1(&[1.5, 3.0, 1.5, 0.5]), Axis(0), BorderMode::Reflect, 0),
         arr1(&[25.0, 21.0, 29.0, 18.5, 18.0, 27.0, 42.0, 40.5])
     );
 
     // Symmetric
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 3.0, 1.0]), Axis(0), CorrelateMode::Reflect, 0),
+        correlate1d(&arr, &arr1(&[1.0, 3.0, 1.0]), Axis(0), BorderMode::Reflect, 0),
         arr1(&[16.0, 26.0, 12.0, 13.0, 16.0, 37.0, 36.0, 9.0])
     );
     assert_eq!(
-        correlate1d(&arr_odd, &arr1(&[1.5, 3.0, 1.5]), Axis(0), CorrelateMode::Reflect, 0),
+        correlate1d(&arr_odd, &arr1(&[1.5, 3.0, 1.5]), Axis(0), BorderMode::Reflect, 0),
         arr1(&[21.0, 27.0, 18.0, 25.5, 46.5, 40.5, 13.5])
     );
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.5, 2.0, 0.5, 2.0, 1.5]), Axis(0), CorrelateMode::Reflect, 0),
+        correlate1d(&arr, &arr1(&[1.5, 2.0, 0.5, 2.0, 1.5]), Axis(0), BorderMode::Reflect, 0),
         arr1(&[33.0, 17.0, 28.5, 29.5, 40.0, 30.5, 24.0, 45.0])
     );
 
     // Anti-symmetric
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 3.0, -1.0]), Axis(0), CorrelateMode::Reflect, 0),
+        correlate1d(&arr, &arr1(&[1.0, 3.0, -1.0]), Axis(0), BorderMode::Reflect, 0),
         arr1(&[0.0, 26.0, 4.0, 11.0, -2.0, 19.0, 36.0, 9.0])
     );
     assert_eq!(
-        correlate1d(&arr_odd, &arr1(&[1.5, 3.0, -1.5]), Axis(0), CorrelateMode::Reflect, 0),
+        correlate1d(&arr_odd, &arr1(&[1.5, 3.0, -1.5]), Axis(0), BorderMode::Reflect, 0),
         arr1(&[-3.0, 27.0, 6.0, -1.5, 19.5, 40.5, 13.5])
     );
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.5, 2.0, 0.5, -2.0, -1.5]), Axis(0), CorrelateMode::Reflect, 0),
+        correlate1d(&arr, &arr1(&[1.5, 2.0, 0.5, -2.0, -1.5]), Axis(0), BorderMode::Reflect, 0),
         arr1(&[1.0, 5.0, 9.5, -1.5, -23.0, -5.5, 24.0, 18.0])
     );
 
     // Other modes and dimensions
     assert_relative_eq!(
-        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(0), CorrelateMode::Constant(0.5), 0),
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(0), BorderMode::Constant(0.5), 0),
         arr2(&[
             [5.0, 7.4, 2.6, 3.8, 18.5, 5.6],
             [3.0, 6.2, 0.7, 1.4, 9.6, 3.8],
@@ -172,7 +166,7 @@ fn test_correlate1d() {
         epsilon = 1e-7,
     );
     assert_relative_eq!(
-        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), CorrelateMode::Constant(0.5), 0),
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), BorderMode::Constant(0.5), 0),
         arr2(&[
             [5.0, 8.4, 4.4, 4.0, 19.1, 11.1],
             [2.0, 4.4, 1.3, 0.3, 3.7, 3.3],
@@ -183,7 +177,7 @@ fn test_correlate1d() {
         epsilon = 1e-7,
     );
     assert_relative_eq!(
-        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(0), CorrelateMode::Nearest, 0),
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(0), BorderMode::Nearest, 0),
         arr2(&[
             [6.0, 9.2, 2.8, 4.4, 24., 6.8],
             [3.0, 6.2, 0.7, 1.4, 9.6, 3.8],
@@ -194,7 +188,7 @@ fn test_correlate1d() {
         epsilon = 1e-7,
     );
     assert_relative_eq!(
-        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), CorrelateMode::Nearest, 0),
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), BorderMode::Nearest, 0),
         arr2(&[
             [6.0, 8.4, 4.4, 4.0, 19.1, 11.1],
             [2.0, 4.4, 1.3, 0.3, 3.7, 3.3],
@@ -205,7 +199,7 @@ fn test_correlate1d() {
         epsilon = 1e-7,
     );
     assert_relative_eq!(
-        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(0), CorrelateMode::Mirror, 0),
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(0), BorderMode::Mirror, 0),
         arr2(&[
             [5.0, 8.2, 2.1, 3.4, 19.2, 5.8],
             [3.0, 6.2, 0.7, 1.4, 9.6, 3.8],
@@ -216,7 +210,7 @@ fn test_correlate1d() {
         epsilon = 1e-7,
     );
     assert_relative_eq!(
-        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), CorrelateMode::Mirror, 0),
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), BorderMode::Mirror, 0),
         arr2(&[
             [6.8, 8.4, 4.4, 4., 19.1, 11.1],
             [2.8, 4.4, 1.3, 0.3, 3.7, 3.3],
@@ -227,7 +221,7 @@ fn test_correlate1d() {
         epsilon = 1e-7,
     );
     assert_relative_eq!(
-        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), CorrelateMode::Reflect, 0),
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), BorderMode::Reflect, 0),
         arr2(&[
             [6.0, 8.4, 4.4, 4.0, 19.1, 11.1],
             [2.0, 4.4, 1.3, 0.3, 3.7, 3.3],
@@ -238,7 +232,7 @@ fn test_correlate1d() {
         epsilon = 1e-7,
     );
     assert_relative_eq!(
-        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(0), CorrelateMode::Wrap, 0),
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(0), BorderMode::Wrap, 0),
         arr2(&[
             [10.2, 10.9, 3.9, 12.4, 22.8, 7.8],
             [3.0, 6.2, 0.7, 1.4, 9.6, 3.8],
@@ -249,7 +243,7 @@ fn test_correlate1d() {
         epsilon = 1e-7,
     );
     assert_relative_eq!(
-        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), CorrelateMode::Wrap, 0),
+        correlate1d(&matrix, &arr1(&[1.0, 3.0]), Axis(1), BorderMode::Wrap, 0),
         arr2(&[
             [6.2, 8.4, 4.4, 4., 19.1, 11.1],
             [2.2, 4.4, 1.3, 0.3, 3.7, 3.3],
@@ -262,27 +256,27 @@ fn test_correlate1d() {
 
     // origin != 0
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), CorrelateMode::Reflect, -1),
+        correlate1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), BorderMode::Reflect, -1),
         arr1(&[26.0, 8.0, 12.0, 7.0, 28.0, 36.0, 9.0, 0.0])
     );
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 3.0, 2.0]), Axis(0), CorrelateMode::Reflect, -1),
+        correlate1d(&arr, &arr1(&[1.0, 3.0, 2.0]), Axis(0), BorderMode::Reflect, -1),
         arr1(&[26.0, 16.0, 14.0, 25.0, 46.0, 36.0, 9.0, 18.0])
     );
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 3.0, 2.0]), Axis(0), CorrelateMode::Reflect, 1),
+        correlate1d(&arr, &arr1(&[1.0, 3.0, 2.0]), Axis(0), BorderMode::Reflect, 1),
         arr1(&[18.0, 24.0, 26.0, 16.0, 14.0, 25.0, 46.0, 36.0])
     );
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 0.5, 1.0, 1.5]), Axis(0), CorrelateMode::Reflect, -2),
+        correlate1d(&arr, &arr1(&[1.0, 0.5, 1.0, 1.5]), Axis(0), BorderMode::Reflect, -2),
         arr1(&[12.0, 13.5, 16.5, 27.0, 14.5, 13.5, 22.5, 22.5])
     );
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 0.5, 1.0, 1.5]), Axis(0), CorrelateMode::Reflect, -1),
+        correlate1d(&arr, &arr1(&[1.0, 0.5, 1.0, 1.5]), Axis(0), BorderMode::Reflect, -1),
         arr1(&[11.0, 12.0, 13.5, 16.5, 27.0, 14.5, 13.5, 22.5])
     );
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 0.5, 1.0, 1.5]), Axis(0), CorrelateMode::Reflect, 1),
+        correlate1d(&arr, &arr1(&[1.0, 0.5, 1.0, 1.5]), Axis(0), BorderMode::Reflect, 1),
         arr1(&[9.0, 23.0, 11.0, 12.0, 13.5, 16.5, 27.0, 14.5])
     );
 }
@@ -294,7 +288,7 @@ fn test_convolve() {
 
     let weight = arr2(&[[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
     assert_eq!(
-        convolve(&a, &weight, CorrelateMode::Mirror, 1),
+        convolve(&a, &weight, BorderMode::Mirror, 1),
         arr2(&[
             [18, 21, 24, 25, 24],
             [33, 36, 39, 40, 39],
@@ -304,7 +298,7 @@ fn test_convolve() {
         ])
     );
     assert_eq!(
-        convolve(&a, &weight, CorrelateMode::Reflect, 0),
+        convolve(&a, &weight, BorderMode::Reflect, 0),
         arr2(&[
             [6, 8, 11, 14, 16],
             [16, 18, 21, 24, 26],
@@ -314,7 +308,7 @@ fn test_convolve() {
         ])
     );
     assert_eq!(
-        convolve(&a, &weight, CorrelateMode::Wrap, -1),
+        convolve(&a, &weight, BorderMode::Wrap, -1),
         arr2(&[
             [42, 40, 38, 41, 44],
             [32, 30, 28, 31, 34],
@@ -332,7 +326,7 @@ fn test_correlate() {
 
     let weight = arr2(&[[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
     assert_eq!(
-        correlate(&a, &weight, CorrelateMode::Constant(2), 0),
+        correlate(&a, &weight, BorderMode::Constant(2), 0),
         arr2(&[
             [8, 10, 12, 14, 8],
             [18, 18, 21, 24, 14],
@@ -342,7 +336,7 @@ fn test_correlate() {
         ])
     );
     assert_eq!(
-        correlate(&a, &weight, CorrelateMode::Nearest, 0),
+        correlate(&a, &weight, BorderMode::Nearest, 0),
         arr2(&[
             [6, 8, 11, 14, 16],
             [16, 18, 21, 24, 26],
@@ -352,7 +346,7 @@ fn test_correlate() {
         ])
     );
     assert_eq!(
-        correlate(&a, &weight, CorrelateMode::Mirror, -1),
+        correlate(&a, &weight, BorderMode::Mirror, -1),
         arr2(&[
             [18, 21, 24, 25, 24],
             [33, 36, 39, 40, 39],
@@ -362,7 +356,7 @@ fn test_correlate() {
         ])
     );
     assert_eq!(
-        correlate(&a, &weight, CorrelateMode::Reflect, 0),
+        correlate(&a, &weight, BorderMode::Reflect, 0),
         arr2(&[
             [6, 8, 11, 14, 16],
             [16, 18, 21, 24, 26],
@@ -372,7 +366,7 @@ fn test_correlate() {
         ])
     );
     assert_eq!(
-        correlate(&a, &weight, CorrelateMode::Wrap, 1),
+        correlate(&a, &weight, BorderMode::Wrap, 1),
         arr2(&[
             [42, 40, 38, 41, 44],
             [32, 30, 28, 31, 34],
@@ -384,7 +378,7 @@ fn test_correlate() {
 
     let weight = arr2(&[[0.0, 0.1, 0.0], [0.1, 0.9, 0.1], [0.0, 0.1, 0.0]]);
     assert_relative_eq!(
-        correlate(&a.mapv(|v| v as f32), &weight, CorrelateMode::Reflect, 0),
+        correlate(&a.mapv(|v| v as f32), &weight, BorderMode::Reflect, 0),
         arr2(&[
             [0.6, 1.8, 3.1, 4.4, 5.6],
             [6.6, 7.8, 9.1, 10.4, 11.6],
@@ -426,16 +420,151 @@ fn test_median_filter() {
 }
 
 #[test] // Results verified with SciPy. (v1.9.0)
+fn test_minmax_filter() {
+    // Even tests
+    let a = arr1(&[2, 8, 0, 4, 1, 9, 9, 0]);
+    assert_eq!(
+        minimum_filter1d(&a, 2, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[2, 2, 0, 0, 1, 1, 9, 0])
+    );
+    assert_eq!(
+        minimum_filter1d(&a, 3, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[2, 0, 0, 0, 1, 1, 0, 0])
+    );
+    assert_eq!(
+        minimum_filter1d(&a, 4, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[2, 0, 0, 0, 0, 1, 0, 0])
+    );
+    assert_eq!(
+        minimum_filter1d(&a, 6, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[0, 0, 0, 0, 0, 0, 0, 0])
+    );
+    assert_eq!(
+        maximum_filter1d(&a, 2, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[2, 8, 8, 4, 4, 9, 9, 9])
+    );
+    assert_eq!(
+        maximum_filter1d(&a, 3, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[8, 8, 8, 4, 9, 9, 9, 9])
+    );
+    assert_eq!(
+        maximum_filter1d(&a, 4, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[8, 8, 8, 8, 9, 9, 9, 9])
+    );
+    assert_eq!(
+        maximum_filter1d(&a, 6, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[8, 8, 8, 9, 9, 9, 9, 9])
+    );
+
+    // Odd tests
+    let a = arr1(&[2, 8, 0, 4, 1, -1, 9, 9, 0]);
+    assert_eq!(
+        minimum_filter1d(&a, 2, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[2, 2, 0, 0, 1, -1, -1, 9, 0])
+    );
+    assert_eq!(
+        minimum_filter1d(&a, 3, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[2, 0, 0, 0, -1, -1, -1, 0, 0])
+    );
+    assert_eq!(
+        minimum_filter1d(&a, 4, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[2, 0, 0, 0, -1, -1, -1, -1, 0])
+    );
+    assert_eq!(
+        minimum_filter1d(&a, 6, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[0, 0, 0, -1, -1, -1, -1, -1, -1])
+    );
+    assert_eq!(
+        maximum_filter1d(&a, 2, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[2, 8, 8, 4, 4, 1, 9, 9, 9])
+    );
+    assert_eq!(
+        maximum_filter1d(&a, 3, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[8, 8, 8, 4, 4, 9, 9, 9, 9])
+    );
+    assert_eq!(
+        maximum_filter1d(&a, 4, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[8, 8, 8, 8, 4, 9, 9, 9, 9])
+    );
+    assert_eq!(
+        maximum_filter1d(&a, 6, Axis(0), BorderMode::Reflect, 0),
+        arr1(&[8, 8, 8, 8, 9, 9, 9, 9, 9])
+    );
+
+    let matrix = arr2(&[
+        [1.5, 2.3, 0.7, 1.1, 6.0, 1.7],
+        [0.5, 1.3, 0.0, 0.1, 1.2, 0.7],
+        [0.4, 1.3, 2.7, 0.1, 0.8, 0.1],
+        [2.1, 0.1, 0.7, 0.1, 1.0, 2.8],
+        [5.7, 4.0, 1.8, 9.1, 4.8, 2.7],
+    ]);
+    assert_relative_eq!(
+        minimum_filter(&matrix, 2, BorderMode::Reflect, 0),
+        arr2(&[
+            [1.5, 1.5, 0.7, 0.7, 1.1, 1.7],
+            [0.5, 0.5, 0.0, 0.0, 0.1, 0.7],
+            [0.4, 0.4, 0.0, 0.0, 0.1, 0.1],
+            [0.4, 0.1, 0.1, 0.1, 0.1, 0.1],
+            [2.1, 0.1, 0.1, 0.1, 0.1, 1.0]
+        ])
+    );
+    assert_relative_eq!(
+        minimum_filter(&matrix, 3, BorderMode::Reflect, 0),
+        arr2(&[
+            [0.5, 0.0, 0.0, 0.0, 0.1, 0.7],
+            [0.4, 0.0, 0.0, 0.0, 0.1, 0.1],
+            [0.1, 0.0, 0.0, 0.0, 0.1, 0.1],
+            [0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+            [0.1, 0.1, 0.1, 0.1, 0.1, 1.0]
+        ])
+    );
+    assert_relative_eq!(
+        minimum_filter(&matrix, 6, BorderMode::Reflect, 0),
+        Array2::zeros(matrix.dim())
+    );
+    assert_relative_eq!(
+        maximum_filter(&matrix, 2, BorderMode::Reflect, 0),
+        arr2(&[
+            [1.5, 2.3, 2.3, 1.1, 6.0, 6.0],
+            [1.5, 2.3, 2.3, 1.1, 6.0, 6.0],
+            [0.5, 1.3, 2.7, 2.7, 1.2, 1.2],
+            [2.1, 2.1, 2.7, 2.7, 1.0, 2.8],
+            [5.7, 5.7, 4.0, 9.1, 9.1, 4.8]
+        ])
+    );
+    assert_relative_eq!(
+        maximum_filter(&matrix, 3, BorderMode::Reflect, 0),
+        arr2(&[
+            [2.3, 2.3, 2.3, 6.0, 6.0, 6.0],
+            [2.3, 2.7, 2.7, 6.0, 6.0, 6.0],
+            [2.1, 2.7, 2.7, 2.7, 2.8, 2.8],
+            [5.7, 5.7, 9.1, 9.1, 9.1, 4.8],
+            [5.7, 5.7, 9.1, 9.1, 9.1, 4.8]
+        ])
+    );
+    assert_relative_eq!(
+        maximum_filter(&matrix, 6, BorderMode::Reflect, 0),
+        arr2(&[
+            [2.7, 2.7, 6.0, 6.0, 6.0, 6.0],
+            [2.7, 2.7, 6.0, 6.0, 6.0, 6.0],
+            [5.7, 9.1, 9.1, 9.1, 9.1, 9.1],
+            [5.7, 9.1, 9.1, 9.1, 9.1, 9.1],
+            [5.7, 9.1, 9.1, 9.1, 9.1, 9.1]
+        ])
+    );
+}
+
+#[test] // Results verified with SciPy. (v1.9.0)
 fn test_gaussian_filter_1d() {
     let mut a: Array1<f32> = (0..7).map(|v| v as f32).collect();
     assert_relative_eq!(
-        gaussian_filter(&a, 1.0, 4.0),
+        gaussian_filter(&a, 1.0, 0, 4),
         arr1(&[0.42704096, 1.0679559, 2.0048335, 3.0, 3.9951665, 4.932044, 5.572959]),
         epsilon = 1e-5
     );
     a[0] = 0.7;
     assert_relative_eq!(
-        gaussian_filter(&a.view(), 2.0, 3.0),
+        gaussian_filter(&a.view(), 2.0, 0, 3),
         arr1(&[1.4193099, 1.737984, 2.3200142, 3.0642939, 3.8351974, 4.4778357, 4.845365]),
         epsilon = 1e-5
     );
@@ -447,7 +576,7 @@ fn test_gaussian_filter_2d() {
     let mut a = a.into_shape((5, 7)).unwrap();
     a[(0, 0)] = 17.0;
     assert_relative_eq!(
-        gaussian_filter(&a, 1.0, 4.0),
+        gaussian_filter(&a, 1.0, 0, 4),
         arr2(&[
             [13.815777, 11.339161, 10.62479, 12.028319, 13.970364, 15.842661, 17.12449],
             [19.028267, 18.574514, 19.253122, 20.97248, 22.940516, 24.813597, 26.095427],
@@ -461,7 +590,7 @@ fn test_gaussian_filter_2d() {
     let mut a = a.into_shape((6, 7)).unwrap();
     a[(0, 0)] = 8.5;
     assert_relative_eq!(
-        gaussian_filter(&a, 1.0, 2.0),
+        gaussian_filter(&a, 1.0, 0, 2),
         arr2(&[
             [10.078889, 9.458512, 10.006921, 11.707343, 13.707343, 15.598366, 16.892008],
             [17.220367, 17.630152, 18.90118, 20.76284, 22.76284, 24.653864, 25.947506],
@@ -477,7 +606,7 @@ fn test_gaussian_filter_2d() {
     let mut a = a.into_shape((8, 7)).unwrap();
     a[(0, 0)] = 18.2;
     assert_relative_eq!(
-        gaussian_filter(&a, 1.5, 3.5),
+        gaussian_filter(&a, 1.5, 0, 3),
         arr2(&[
             [16.712738, 16.30507, 16.362633, 17.34964, 18.918924, 20.453388, 21.402458],
             [22.053278, 22.092232, 22.654442, 23.931578, 25.60057, 27.156698, 28.1087],
@@ -499,7 +628,7 @@ fn test_gaussian_filter_3d() {
     a[(0, 0, 0)] = 0.2;
     a[(3, 3, 3)] = 1.0;
 
-    let g = gaussian_filter(&a, 1.8, 4.0);
+    let g = gaussian_filter(&a, 1.8, 0, 4);
     assert_relative_eq!(
         g.slice(s![0, .., ..]),
         arr2(&[
@@ -537,5 +666,5 @@ fn test_gaussian_filter_3d() {
 fn test_gaussian_filter_panic() {
     let a: Array1<f32> = (0..7).map(|v| v as f32).collect();
 
-    let _ = gaussian_filter(&a, 2.0, 4.0);
+    let _ = gaussian_filter(&a, 2.0, 0, 4);
 }
