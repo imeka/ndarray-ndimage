@@ -3,7 +3,7 @@ use ndarray::{arr1, arr2, s, Array1, Array2, Axis};
 
 use ndarray_ndimage::{
     convolve, convolve1d, correlate, correlate1d, gaussian_filter, maximum_filter,
-    maximum_filter1d, median_filter, minimum_filter, minimum_filter1d, BorderMode, Mask,
+    maximum_filter1d, median_filter, minimum_filter, minimum_filter1d, prewitt, BorderMode, Mask,
 };
 
 #[test] // Results verified with SciPy. (v1.9.0)
@@ -667,4 +667,44 @@ fn test_gaussian_filter_panic() {
     let a: Array1<f32> = (0..7).map(|v| v as f32).collect();
 
     let _ = gaussian_filter(&a, 2.0, 0, 4);
+}
+
+#[test] // Results verified with SciPy. (v1.9.0)
+fn test_prewitt() {
+    let a = arr1(&[2.0, 8.1, 0.5, 4.0, 1.1, 9.0, 9.0, 0.8]);
+    assert_relative_eq!(
+        prewitt(&a, Axis(0), BorderMode::Reflect),
+        arr1(&[6.1, -1.5, -4.1, 0.6, 5.0, 7.9, -8.2, -8.2]),
+        epsilon = 1e-5
+    );
+
+    let matrix = arr2(&[
+        [1.5, 2.3, 0.7, 1.1, 6.0, 1.7],
+        [0.5, 1.3, 0.0, 0.1, 1.2, 0.7],
+        [0.4, 1.3, 2.7, 0.1, 0.8, 0.1],
+        [2.1, 0.1, 0.7, 0.1, 1.0, 2.8],
+        [5.7, 4.0, 1.8, 9.1, 4.8, 2.7],
+    ]);
+    assert_relative_eq!(
+        prewitt(&matrix, Axis(0), BorderMode::Reflect),
+        arr2(&[
+            [-3.0, -2.7, -2.7, -6.5, -6.8, -6.8],
+            [-3.2, -0.1, 0.0, -4.2, -7.8, -8.4],
+            [2.0, 1.1, -0.5, 0.5, 1.9, 4.0],
+            [13.3, 7.1, 10.8, 12.1, 15.6, 9.2],
+            [11.1, 8.6, 14.0, 13.9, 12.7, 3.6]
+        ]),
+        epsilon = 1e-5
+    );
+    assert_relative_eq!(
+        prewitt(&matrix, Axis(1), BorderMode::Reflect),
+        arr2(&[
+            [2.4, -2.1, -3.6, 11.8, 1.8, -9.1],
+            [2.5, 1.0, -3.6, 4.6, 1.2, -5.5],
+            [-0.3, 0.4, -2.4, -0.4, 3.3, 0.6],
+            [-2.8, -3.0, 3.9, 1.4, -3.7, -1.0],
+            [-5.4, -9.2, 10.2, 6.3, -10.1, -2.4]
+        ]),
+        epsilon = 1e-5
+    );
 }
