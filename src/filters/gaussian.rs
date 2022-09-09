@@ -1,21 +1,21 @@
 use ndarray::{Array, ArrayBase, Axis, Data, Dimension};
-use num_traits::{Float, ToPrimitive};
+use num_traits::{Float, FromPrimitive};
 
 use crate::array_like;
 
 /// Gaussian filter for n-dimensional arrays.
 ///
-/// Currently hardcoded with the `PadMode::Reflect` padding mode and 0 order.
+/// Currently hardcoded with the `PadMode::Reflect` padding mode.
 ///
 /// * `data` - The input N-D data.
 /// * `sigma` - Standard deviation for Gaussian kernel.
 /// * `truncate` - Truncate the filter at this many standard deviations.
 ///
 /// **Panics** if one of the axis' lengths is lower than `truncate * sigma + 0.5`.
-pub fn gaussian_filter<S, A, D>(data: &ArrayBase<S, D>, sigma: A, truncate: A) -> Array<A, D>
+pub fn gaussian_filter<S, A, D>(data: &ArrayBase<S, D>, sigma: A, truncate: usize) -> Array<A, D>
 where
     S: Data<Elem = A>,
-    A: Float + ToPrimitive,
+    A: Float + FromPrimitive + 'static,
     D: Dimension,
 {
     // We need 2 buffers because
@@ -37,7 +37,7 @@ where
 
 /// Gaussian filter for 1-dimensional arrays.
 ///
-/// Currently hardcoded with the `PadMode::Reflect` padding mode and 0 order.
+/// Currently hardcoded with the `PadMode::Reflect` padding mode.
 ///
 /// * `data` - The input N-D data.
 /// * `sigma` - Standard deviation for Gaussian kernel.
@@ -48,12 +48,12 @@ where
 pub fn gaussian_filter1d<S, A, D>(
     data: &ArrayBase<S, D>,
     sigma: A,
-    truncate: A,
+    truncate: usize,
     axis: Axis,
 ) -> Array<A, D>
 where
     S: Data<Elem = A>,
-    A: Float + ToPrimitive,
+    A: Float + FromPrimitive,
     D: Dimension,
 {
     let weights = weights(sigma, truncate);
@@ -69,7 +69,7 @@ fn _gaussian_filter1d<S, A, D>(
     output: &mut Array<A, D>,
 ) where
     S: Data<Elem = A>,
-    A: Float + ToPrimitive,
+    A: Float + FromPrimitive,
     D: Dimension,
 {
     let half = weights.len() / 2;
@@ -132,17 +132,17 @@ fn _gaussian_filter1d<S, A, D>(
 }
 
 /// Computes a 1-D Gaussian convolution kernel.
-fn weights<A>(sigma: A, truncate: A) -> Vec<A>
+fn weights<A>(sigma: A, truncate: usize) -> Vec<A>
 where
-    A: Float,
+    A: Float + FromPrimitive,
 {
     // Make the radius of the filter equal to truncate standard deviations
-    let radius = (truncate * sigma + A::from(0.5).unwrap()).to_isize().unwrap();
+    let radius = (A::from(truncate).unwrap() * sigma + A::from(0.5).unwrap()).to_isize().unwrap();
 
     let sigma2 = sigma.powi(2);
-    let mut phi_x: Vec<_> = (-radius..=radius)
-        .map(|x| (A::from(-0.5).unwrap() / sigma2 * A::from(x.pow(2)).unwrap()).exp())
-        .collect();
+    let m05 = A::from(-0.5).unwrap();
+    let mut phi_x: Vec<_> =
+        (-radius..=radius).map(|x| (m05 / sigma2 * A::from(x.pow(2)).unwrap()).exp()).collect();
     let sum = phi_x.iter().fold(A::zero(), |acc, &v| acc + v);
     phi_x.iter_mut().for_each(|v| *v = *v / sum);
     phi_x
