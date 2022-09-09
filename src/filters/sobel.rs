@@ -1,7 +1,8 @@
-use ndarray::{arr1, Array, ArrayBase, Axis, Data, Dimension, ScalarOperand};
+use ndarray::{Array, ArrayBase, Axis, Data, Dimension, ScalarOperand};
 use num_traits::{Float, FromPrimitive};
 
-use crate::{correlate1d, BorderMode};
+use super::con_corr::_correlate1d;
+use crate::BorderMode;
 
 /// Calculate a Prewitt filter.
 ///
@@ -16,17 +17,17 @@ where
     D: Dimension,
 {
     // TODO Warn the user to NOT call this function with unsigned data
-    let weights = arr1(&[-A::one(), A::zero(), A::one()]);
-    let mut output = correlate1d(&data.view(), &weights.view(), axis, mode, 0);
+    let mut weights = [-A::one(), A::zero(), A::one()];
+    let mut output = _correlate1d(&data.view(), &weights, axis, mode, 0);
     if data.ndim() == 1 {
         return output;
     }
 
-    let weights = arr1(&[A::one(), A::from(2).unwrap(), A::one()]);
+    weights = [A::one(), A::from(2).unwrap(), A::one()];
     for d in 0..data.ndim() {
         if d != axis.index() {
             let axis = Axis(d);
-            output = correlate1d(&output.view(), &weights.view(), axis, mode, 0);
+            output = _correlate1d(&output.view(), &weights, axis, mode, 0);
         }
     }
     output

@@ -88,7 +88,7 @@ where
     }
 }
 
-fn _correlate1d<S, A, D>(
+pub(crate) fn _correlate1d<S, A, D>(
     data: &ArrayBase<S, D>,
     weights: &[A],
     axis: Axis,
