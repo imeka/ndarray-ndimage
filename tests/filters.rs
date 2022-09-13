@@ -20,12 +20,12 @@ fn test_convolve1d() {
     ]);
 
     assert_eq!(
-        convolve1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), BorderMode::Reflect, -1),
-        arr1(&[8.0, 14.0, 24.0, 4.0, 13.0, 12.0, 36.0, 27.0])
+        convolve1d(&arr.mapv(|v| v as u32), &arr1(&[1, 3]), Axis(0), BorderMode::Reflect, -1),
+        arr1(&[8, 14, 24, 4, 13, 12, 36, 27])
     );
     assert_eq!(
-        convolve1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), BorderMode::Reflect, 0),
-        arr1(&[14.0, 24.0, 4.0, 13.0, 12.0, 36.0, 27.0, 0.0])
+        convolve1d(&arr.mapv(|v| v as i32), &arr1(&[1, 3]), Axis(0), BorderMode::Reflect, 0),
+        arr1(&[14, 24, 4, 13, 12, 36, 27, 0])
     );
     assert_eq!(
         convolve1d(&arr, &arr1(&[1.0, 3.0, 2.0]), Axis(0), BorderMode::Reflect, 0),
@@ -110,12 +110,12 @@ fn test_correlate1d() {
 
     // Non-Symmetric
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), BorderMode::Reflect, 0),
-        arr1(&[8.0, 26.0, 8.0, 12.0, 7.0, 28.0, 36.0, 9.0])
+        correlate1d(&arr.mapv(|v| v as u32), &arr1(&[1, 3]), Axis(0), BorderMode::Reflect, 0),
+        arr1(&[8, 26, 8, 12, 7, 28, 36, 9])
     );
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 3.0, 2.0]), Axis(0), BorderMode::Reflect, 0),
-        arr1(&[24.0, 26.0, 16.0, 14.0, 25.0, 46.0, 36.0, 9.0])
+        correlate1d(&arr.mapv(|v| v as i32), &arr1(&[1, 3, 2]), Axis(0), BorderMode::Reflect, 0),
+        arr1(&[24, 26, 16, 14, 25, 46, 36, 9])
     );
     assert_eq!(
         correlate1d(&arr, &arr1(&[1.0, 3.0, 2.0, 1.0]), Axis(0), BorderMode::Reflect, 0),
