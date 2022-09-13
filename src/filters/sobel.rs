@@ -1,7 +1,7 @@
 use ndarray::{Array, ArrayBase, Axis, Data, Dimension, ScalarOperand};
 use num_traits::{Float, FromPrimitive};
 
-use super::con_corr::_correlate1d;
+use super::con_corr::{SymmetryStateCheck, _correlate1d};
 use crate::BorderMode;
 
 /// Calculate a Prewitt filter.
@@ -14,6 +14,7 @@ pub fn sobel<S, A, D>(data: &ArrayBase<S, D>, axis: Axis, mode: BorderMode<A>) -
 where
     S: Data<Elem = A>,
     A: Float + ScalarOperand + FromPrimitive,
+    for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
 {
     // TODO Warn the user to NOT call this function with unsigned data
