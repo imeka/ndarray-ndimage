@@ -3,7 +3,10 @@ use ndarray::{
 };
 use num_traits::{FromPrimitive, Num};
 
-use super::origin_check;
+use super::{
+    origin_check,
+    symmetry::{symmetry_state, SymmetryState, SymmetryStateCheck},
+};
 use crate::{pad, pad_to, BorderMode};
 
 /// Calculate a 1-D convolution along the given axis.
@@ -44,7 +47,7 @@ where
         origin -= 1;
     }
 
-    _correlate1d(data, weights.as_slice().unwrap(), axis, mode, origin)
+    inner_correlate1d(data, weights.as_slice().unwrap(), axis, mode, origin)
 }
 
 /// Calculate a 1-D correlation along the given axis.
@@ -80,15 +83,15 @@ where
     }
 
     match weights.as_slice_memory_order() {
-        Some(s) => _correlate1d(data, s, axis, mode, origin),
+        Some(s) => inner_correlate1d(data, s, axis, mode, origin),
         None => {
             let weights = weights.to_owned();
-            _correlate1d(data, weights.as_slice_memory_order().unwrap(), axis, mode, origin)
+            inner_correlate1d(data, weights.as_slice_memory_order().unwrap(), axis, mode, origin)
         }
     }
 }
 
-pub(crate) fn _correlate1d<S, A, D>(
+pub(crate) fn inner_correlate1d<S, A, D>(
     data: &ArrayBase<S, D>,
     weights: &[A],
     axis: Axis,
@@ -155,119 +158,6 @@ where
 
     output
 }
-
-#[derive(PartialEq)]
-pub enum SymmetryState {
-    NonSymmetric,
-    Symmetric,
-    AntiSymmetric,
-}
-
-#[inline(always)]
-pub fn symmetry_state<A: SymmetryStateCheck>(a: A) -> SymmetryState {
-    a.symmetry_state()
-}
-
-pub trait SymmetryStateCheck {
-    fn symmetry_state(self) -> SymmetryState;
-}
-
-macro_rules! impl_symmetry_state_for_unsigned {
-    ( $( $self:ty ),* ) => {
-        $(
-            impl<'a> SymmetryStateCheck for &'a [$self] {
-                fn symmetry_state(self) -> SymmetryState {
-                    // Test for symmetry
-                    let mut state = SymmetryState::NonSymmetric;
-                    let filter_size = self.len();
-                    let half = filter_size / 2;
-                    if filter_size & 1 > 0 {
-                        state = SymmetryState::Symmetric;
-                        for ii in 1..=half {
-                            if self[ii + half] != self[half - ii] {
-                                state = SymmetryState::NonSymmetric;
-                                break;
-                            }
-                        }
-                    }
-                    state
-                }
-            }
-        )*
-    }
-}
-
-macro_rules! impl_symmetry_state_for_signed {
-    ( $( $self:ty ),* ) => {
-        $(
-            impl<'a> SymmetryStateCheck for &'a [$self] {
-                fn symmetry_state(self) -> SymmetryState {
-                    // Test for symmetry or anti-symmetry
-                    let mut state = SymmetryState::NonSymmetric;
-                    let filter_size = self.len();
-                    let half = filter_size / 2;
-                    if filter_size & 1 > 0 {
-                        state = SymmetryState::Symmetric;
-                        for ii in 1..=half {
-                            if self[ii + half] != self[half - ii] {
-                                state = SymmetryState::NonSymmetric;
-                                break;
-                            }
-                        }
-                        if state == SymmetryState::NonSymmetric {
-                            state = SymmetryState::AntiSymmetric;
-                            for ii in 1..=half {
-                                if self[ii + half] != -self[half - ii] {
-                                    state = SymmetryState::NonSymmetric;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    state
-                }
-            }
-        )*
-    }
-}
-
-macro_rules! impl_symmetry_state_for_fp {
-    ( $( $self:ty ),* ) => {
-        $(
-            impl<'a> SymmetryStateCheck for &'a [$self] {
-                fn symmetry_state(self) -> SymmetryState {
-                    // Test for symmetry or anti-symmetry
-                    let mut state = SymmetryState::NonSymmetric;
-                    let filter_size = self.len();
-                    let half = filter_size / 2;
-                    if filter_size & 1 > 0 {
-                        state = SymmetryState::Symmetric;
-                        for ii in 1..=half {
-                            if (self[ii + half] - self[half - ii]).abs() > <$self>::EPSILON {
-                                state = SymmetryState::NonSymmetric;
-                                break;
-                            }
-                        }
-                        if state == SymmetryState::NonSymmetric {
-                            state = SymmetryState::AntiSymmetric;
-                            for ii in 1..=half {
-                                if (self[ii + half] + self[half - ii]).abs() > <$self>::EPSILON {
-                                    state = SymmetryState::NonSymmetric;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    state
-                }
-            }
-        )*
-    }
-}
-
-impl_symmetry_state_for_unsigned!(u8, u16, u32, u64);
-impl_symmetry_state_for_signed!(i8, i16, i32, i64);
-impl_symmetry_state_for_fp!(f32, f64);
 
 /// Multidimensional convolution.
 ///

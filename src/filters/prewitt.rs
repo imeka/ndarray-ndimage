@@ -1,7 +1,7 @@
 use ndarray::{Array, ArrayBase, Axis, Data, Dimension, ScalarOperand};
 use num_traits::{Float, FromPrimitive};
 
-use super::con_corr::{SymmetryStateCheck, _correlate1d};
+use super::{con_corr::inner_correlate1d, symmetry::SymmetryStateCheck};
 use crate::BorderMode;
 
 /// Calculate a Prewitt filter.
@@ -19,7 +19,7 @@ where
 {
     // TODO Warn the user to NOT call this function with unsigned data
     let mut weights = [-A::one(), A::zero(), A::one()];
-    let mut output = _correlate1d(&data.view(), &weights, axis, mode, 0);
+    let mut output = inner_correlate1d(&data.view(), &weights, axis, mode, 0);
     if data.ndim() == 1 {
         return output;
     }
@@ -27,7 +27,7 @@ where
     weights = [A::one(); 3];
     for d in 0..data.ndim() {
         if d != axis.index() {
-            output = _correlate1d(&output.view(), &weights, Axis(d), mode, 0);
+            output = inner_correlate1d(&output.view(), &weights, Axis(d), mode, 0);
         }
     }
     output
