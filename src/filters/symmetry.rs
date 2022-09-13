@@ -1,4 +1,4 @@
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum SymmetryState {
     NonSymmetric,
     Symmetric,
@@ -110,3 +110,25 @@ macro_rules! impl_symmetry_state_for_fp {
 impl_symmetry_state_for_unsigned!(u8, u16, u32, u64);
 impl_symmetry_state_for_signed!(i8, i16, i32, i64);
 impl_symmetry_state_for_fp!(f32, f64);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test] // Results verified with SciPy. (v1.9.0)
+    fn test_symmetry_state() {
+        assert_eq!(symmetry_state(&[1.0, 1.0][..]), SymmetryState::NonSymmetric);
+        assert_eq!(symmetry_state(&[1.0, 1.0, 2.0][..]), SymmetryState::NonSymmetric);
+        assert_eq!(symmetry_state(&[1.0, 2.0, 0.0][..]), SymmetryState::NonSymmetric);
+        assert_eq!(symmetry_state(&[1.0, 2.0, 1.000000001][..]), SymmetryState::NonSymmetric);
+
+        assert_eq!(symmetry_state(&[-1.0, 2.0, -1.0][..]), SymmetryState::Symmetric);
+        assert_eq!(symmetry_state(&[1.0, 2.0, 1.0][..]), SymmetryState::Symmetric);
+        assert_eq!(symmetry_state(&[1.0, 2.0, 1.0, 2.0, 1.0][..]), SymmetryState::Symmetric);
+
+        assert_eq!(symmetry_state(&[-1.0, 2.0, 1.0][..]), SymmetryState::AntiSymmetric);
+        assert_eq!(symmetry_state(&[1.0, 2.0, -1.0][..]), SymmetryState::AntiSymmetric);
+        assert_eq!(symmetry_state(&[1.0, 2.0, 1.0, -2.0, -1.0][..]), SymmetryState::AntiSymmetric);
+        assert_eq!(symmetry_state(&[1.0, 2.0, -1.0, -2.0, -1.0][..]), SymmetryState::AntiSymmetric);
+    }
+}
