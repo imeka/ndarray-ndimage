@@ -1,10 +1,13 @@
 use ndarray::{
     s, Array, Array1, ArrayBase, Axis, Data, Dimension, Ix1, ScalarOperand, ShapeBuilder, Zip,
 };
-use num_traits::{Float, FromPrimitive, Num};
+use num_traits::{FromPrimitive, Num, Signed};
 
-use super::origin_check;
-use crate::{pad, pad_to, BorderMode};
+use super::{
+    origin_check,
+    symmetry::{symmetry_state, SymmetryState, SymmetryStateCheck},
+};
+use crate::{array_like, pad, pad_to, BorderMode};
 
 /// Calculate a 1-D convolution along the given axis.
 ///
@@ -26,8 +29,8 @@ pub fn convolve1d<S, A, D>(
 ) -> Array<A, D>
 where
     S: Data<Elem = A>,
-    // TODO Should be Num, not Float
-    A: Float + ScalarOperand + FromPrimitive,
+    A: Copy + Num + ScalarOperand + FromPrimitive + PartialOrd,
+    for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
 {
     if weights.is_empty() {
@@ -44,7 +47,9 @@ where
         origin -= 1;
     }
 
-    _correlate1d(data, weights.as_slice().unwrap(), axis, mode, origin)
+    let mut output = data.to_owned();
+    inner_correlate1d(data, weights.as_slice().unwrap(), axis, mode, origin, &mut output);
+    output
 }
 
 /// Calculate a 1-D correlation along the given axis.
@@ -68,8 +73,8 @@ pub fn correlate1d<S, A, D>(
 ) -> Array<A, D>
 where
     S: Data<Elem = A>,
-    // TODO Should be Num, not Float
-    A: Float + ScalarOperand + FromPrimitive,
+    A: Copy + Num + FromPrimitive + ScalarOperand + PartialOrd,
+    for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
 {
     if weights.is_empty() {
@@ -79,26 +84,29 @@ where
         return data.to_owned() * weights[0];
     }
 
+    let mut output = data.to_owned();
     match weights.as_slice_memory_order() {
-        Some(s) => _correlate1d(data, s, axis, mode, origin),
+        Some(s) => inner_correlate1d(data, s, axis, mode, origin, &mut output),
         None => {
             let weights = weights.to_owned();
-            _correlate1d(data, weights.as_slice_memory_order().unwrap(), axis, mode, origin)
+            let weights = weights.as_slice_memory_order().unwrap();
+            inner_correlate1d(data, weights, axis, mode, origin, &mut output)
         }
-    }
+    };
+    output
 }
 
-fn _correlate1d<S, A, D>(
+pub(crate) fn inner_correlate1d<S, A, D>(
     data: &ArrayBase<S, D>,
     weights: &[A],
     axis: Axis,
     mode: BorderMode<A>,
     origin: isize,
-) -> Array<A, D>
-where
+    output: &mut Array<A, D>,
+) where
     S: Data<Elem = A>,
-    // TODO Should be Num, not Float
-    A: Float + FromPrimitive,
+    A: Copy + Num + FromPrimitive + PartialOrd,
+    for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
 {
     let symmetry_state = symmetry_state(weights);
@@ -111,7 +119,6 @@ where
     let pad = vec![origin_check(weights.len(), origin, size1, size2)];
     let mut buffer = Array1::from_elem(n + pad[0][0] + pad[0][1], mode.init());
 
-    let mut output = data.to_owned();
     Zip::from(data.lanes(axis)).and(output.lanes_mut(axis)).for_each(|input, o| {
         pad_to(&input, &pad, mode, &mut buffer);
         let buffer = buffer.as_slice_memory_order().unwrap();
@@ -152,44 +159,6 @@ where
             }
         }
     });
-
-    output
-}
-
-#[derive(PartialEq)]
-enum SymmetryState {
-    NonSymmetric,
-    Symmetric,
-    AntiSymmetric,
-}
-
-fn symmetry_state<A>(arr: &[A]) -> SymmetryState
-where
-    A: Float,
-{
-    // Test for symmetry or anti-symmetry
-    let mut state = SymmetryState::NonSymmetric;
-    let filter_size = arr.len();
-    let size1 = filter_size / 2;
-    if filter_size & 1 > 0 {
-        state = SymmetryState::Symmetric;
-        for ii in 1..=size1 {
-            if (arr[ii + size1] - arr[size1 - ii]).abs() > A::epsilon() {
-                state = SymmetryState::NonSymmetric;
-                break;
-            }
-        }
-        if state == SymmetryState::NonSymmetric {
-            state = SymmetryState::AntiSymmetric;
-            for ii in 1..=size1 {
-                if (arr[ii + size1] + arr[size1 - ii]).abs() > A::epsilon() {
-                    state = SymmetryState::NonSymmetric;
-                    break;
-                }
-            }
-        }
-    }
-    state
 }
 
 /// Multidimensional convolution.
@@ -293,4 +262,69 @@ where
         let start = starting_idx_at(idx);
         offsets.iter().fold(A::zero(), |acc, &(k, offset)| acc + k * padded[start + offset])
     })
+}
+
+/// Calculate a Prewitt filter.
+///
+/// * `data` - The input N-D data.
+/// * `axis` - The axis of input along which to calculate.
+/// * `mode` - Method that will be used to select the padded values. See the
+///   [`CorrelateMode`](crate::CorrelateMode) enum for more information.
+pub fn prewitt<S, A, D>(data: &ArrayBase<S, D>, axis: Axis, mode: BorderMode<A>) -> Array<A, D>
+where
+    S: Data<Elem = A>,
+    A: Copy + Signed + ScalarOperand + FromPrimitive + PartialOrd,
+    for<'a> &'a [A]: SymmetryStateCheck,
+    D: Dimension,
+{
+    let second_weights = [A::one(); 3];
+    inner_prewitt_sobel(data, axis, mode, &second_weights)
+}
+
+/// Calculate a Prewitt filter.
+///
+/// * `data` - The input N-D data.
+/// * `axis` - The axis of input along which to calculate.
+/// * `mode` - Method that will be used to select the padded values. See the
+///   [`CorrelateMode`](crate::CorrelateMode) enum for more information.
+pub fn sobel<S, A, D>(data: &ArrayBase<S, D>, axis: Axis, mode: BorderMode<A>) -> Array<A, D>
+where
+    S: Data<Elem = A>,
+    A: Copy + Signed + ScalarOperand + FromPrimitive + PartialOrd,
+    for<'a> &'a [A]: SymmetryStateCheck,
+    D: Dimension,
+{
+    let second_weights = [A::one(), A::from_u8(2).unwrap(), A::one()];
+    inner_prewitt_sobel(data, axis, mode, &second_weights)
+}
+
+fn inner_prewitt_sobel<S, A, D>(
+    data: &ArrayBase<S, D>,
+    axis: Axis,
+    mode: BorderMode<A>,
+    second_weights: &[A],
+) -> Array<A, D>
+where
+    S: Data<Elem = A>,
+    A: Copy + Signed + ScalarOperand + FromPrimitive + PartialOrd,
+    for<'a> &'a [A]: SymmetryStateCheck,
+    D: Dimension,
+{
+    let weights = [-A::one(), A::zero(), A::one()];
+    let mut output = array_like(&data, data.dim(), A::zero());
+    inner_correlate1d(&data.view(), &weights, axis, mode, 0, &mut output);
+    if data.ndim() == 1 {
+        return output;
+    }
+
+    let indices: Vec<_> = (0..data.ndim()).filter(|&d| d != axis.index()).collect();
+    let mut data = output.clone();
+    for (i, d) in indices.into_iter().enumerate() {
+        let axis = Axis(d);
+        inner_correlate1d(&data, second_weights, axis, mode, 0, &mut output);
+        if i != data.ndim() - 2 {
+            std::mem::swap(&mut output, &mut data);
+        }
+    }
+    output
 }

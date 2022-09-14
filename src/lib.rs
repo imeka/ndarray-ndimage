@@ -12,7 +12,7 @@ mod morphology;
 mod pad;
 
 pub use filters::{
-    con_corr::{convolve, convolve1d, correlate, correlate1d},
+    con_corr::{convolve, convolve1d, correlate, correlate1d, prewitt, sobel},
     gaussian::{gaussian_filter, gaussian_filter1d},
     median::median_filter,
     min_max::{

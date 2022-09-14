@@ -3,7 +3,8 @@ use ndarray::{arr1, arr2, s, Array1, Array2, Axis};
 
 use ndarray_ndimage::{
     convolve, convolve1d, correlate, correlate1d, gaussian_filter, maximum_filter,
-    maximum_filter1d, median_filter, minimum_filter, minimum_filter1d, BorderMode, Mask,
+    maximum_filter1d, median_filter, minimum_filter, minimum_filter1d, prewitt, sobel, BorderMode,
+    Mask,
 };
 
 #[test] // Results verified with SciPy. (v1.9.0)
@@ -19,12 +20,12 @@ fn test_convolve1d() {
     ]);
 
     assert_eq!(
-        convolve1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), BorderMode::Reflect, -1),
-        arr1(&[8.0, 14.0, 24.0, 4.0, 13.0, 12.0, 36.0, 27.0])
+        convolve1d(&arr.mapv(|v| v as u32), &arr1(&[1, 3]), Axis(0), BorderMode::Reflect, -1),
+        arr1(&[8, 14, 24, 4, 13, 12, 36, 27])
     );
     assert_eq!(
-        convolve1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), BorderMode::Reflect, 0),
-        arr1(&[14.0, 24.0, 4.0, 13.0, 12.0, 36.0, 27.0, 0.0])
+        convolve1d(&arr.mapv(|v| v as i32), &arr1(&[1, 3]), Axis(0), BorderMode::Reflect, 0),
+        arr1(&[14, 24, 4, 13, 12, 36, 27, 0])
     );
     assert_eq!(
         convolve1d(&arr, &arr1(&[1.0, 3.0, 2.0]), Axis(0), BorderMode::Reflect, 0),
@@ -109,12 +110,12 @@ fn test_correlate1d() {
 
     // Non-Symmetric
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 3.0]), Axis(0), BorderMode::Reflect, 0),
-        arr1(&[8.0, 26.0, 8.0, 12.0, 7.0, 28.0, 36.0, 9.0])
+        correlate1d(&arr.mapv(|v| v as u32), &arr1(&[1, 3]), Axis(0), BorderMode::Reflect, 0),
+        arr1(&[8, 26, 8, 12, 7, 28, 36, 9])
     );
     assert_eq!(
-        correlate1d(&arr, &arr1(&[1.0, 3.0, 2.0]), Axis(0), BorderMode::Reflect, 0),
-        arr1(&[24.0, 26.0, 16.0, 14.0, 25.0, 46.0, 36.0, 9.0])
+        correlate1d(&arr.mapv(|v| v as i32), &arr1(&[1, 3, 2]), Axis(0), BorderMode::Reflect, 0),
+        arr1(&[24, 26, 16, 14, 25, 46, 36, 9])
     );
     assert_eq!(
         correlate1d(&arr, &arr1(&[1.0, 3.0, 2.0, 1.0]), Axis(0), BorderMode::Reflect, 0),
@@ -558,13 +559,13 @@ fn test_minmax_filter() {
 fn test_gaussian_filter_1d() {
     let mut a: Array1<f32> = (0..7).map(|v| v as f32).collect();
     assert_relative_eq!(
-        gaussian_filter(&a, 1.0, 0, 4),
+        gaussian_filter(&a, 1.0, 0, BorderMode::Reflect, 4),
         arr1(&[0.42704096, 1.0679559, 2.0048335, 3.0, 3.9951665, 4.932044, 5.572959]),
         epsilon = 1e-5
     );
     a[0] = 0.7;
     assert_relative_eq!(
-        gaussian_filter(&a.view(), 2.0, 0, 3),
+        gaussian_filter(&a.view(), 2.0, 0, BorderMode::Reflect, 3),
         arr1(&[1.4193099, 1.737984, 2.3200142, 3.0642939, 3.8351974, 4.4778357, 4.845365]),
         epsilon = 1e-5
     );
@@ -576,7 +577,7 @@ fn test_gaussian_filter_2d() {
     let mut a = a.into_shape((5, 7)).unwrap();
     a[(0, 0)] = 17.0;
     assert_relative_eq!(
-        gaussian_filter(&a, 1.0, 0, 4),
+        gaussian_filter(&a, 1.0, 0, BorderMode::Reflect, 4),
         arr2(&[
             [13.815777, 11.339161, 10.62479, 12.028319, 13.970364, 15.842661, 17.12449],
             [19.028267, 18.574514, 19.253122, 20.97248, 22.940516, 24.813597, 26.095427],
@@ -590,7 +591,7 @@ fn test_gaussian_filter_2d() {
     let mut a = a.into_shape((6, 7)).unwrap();
     a[(0, 0)] = 8.5;
     assert_relative_eq!(
-        gaussian_filter(&a, 1.0, 0, 2),
+        gaussian_filter(&a, 1.0, 0, BorderMode::Reflect, 2),
         arr2(&[
             [10.078889, 9.458512, 10.006921, 11.707343, 13.707343, 15.598366, 16.892008],
             [17.220367, 17.630152, 18.90118, 20.76284, 22.76284, 24.653864, 25.947506],
@@ -606,7 +607,7 @@ fn test_gaussian_filter_2d() {
     let mut a = a.into_shape((8, 7)).unwrap();
     a[(0, 0)] = 18.2;
     assert_relative_eq!(
-        gaussian_filter(&a, 1.5, 0, 3),
+        gaussian_filter(&a, 1.5, 0, BorderMode::Reflect, 3),
         arr2(&[
             [16.712738, 16.30507, 16.362633, 17.34964, 18.918924, 20.453388, 21.402458],
             [22.053278, 22.092232, 22.654442, 23.931578, 25.60057, 27.156698, 28.1087],
@@ -628,7 +629,7 @@ fn test_gaussian_filter_3d() {
     a[(0, 0, 0)] = 0.2;
     a[(3, 3, 3)] = 1.0;
 
-    let g = gaussian_filter(&a, 1.8, 0, 4);
+    let g = gaussian_filter(&a, 1.8, 0, BorderMode::Reflect, 4);
     assert_relative_eq!(
         g.slice(s![0, .., ..]),
         arr2(&[
@@ -666,5 +667,143 @@ fn test_gaussian_filter_3d() {
 fn test_gaussian_filter_panic() {
     let a: Array1<f32> = (0..7).map(|v| v as f32).collect();
 
-    let _ = gaussian_filter(&a, 2.0, 0, 4);
+    let _ = gaussian_filter(&a, 2.0, 0, BorderMode::Reflect, 4);
+}
+
+#[test] // Results verified with SciPy. (v1.9.0)
+fn test_prewitt() {
+    let a = arr1(&[2.0, 8.1, 0.5, 4.0, 1.1, 9.0, 9.0, 0.8]);
+    assert_relative_eq!(
+        prewitt(&a, Axis(0), BorderMode::Reflect),
+        arr1(&[6.1, -1.5, -4.1, 0.6, 5.0, 7.9, -8.2, -8.2]),
+        epsilon = 1e-5
+    );
+
+    let matrix = arr2(&[
+        [1.5, 2.3, 0.7, 1.1, 6.0, 1.7],
+        [0.5, 1.3, 0.0, 0.1, 1.2, 0.7],
+        [0.4, 1.3, 2.7, 0.1, 0.8, 0.1],
+        [2.1, 0.1, 0.7, 0.1, 1.0, 2.8],
+        [5.7, 4.0, 1.8, 9.1, 4.8, 2.7],
+    ]);
+    assert_relative_eq!(
+        prewitt(&matrix, Axis(0), BorderMode::Reflect),
+        arr2(&[
+            [-3.0, -2.7, -2.7, -6.5, -6.8, -6.8],
+            [-3.2, -0.1, 0.0, -4.2, -7.8, -8.4],
+            [2.0, 1.1, -0.5, 0.5, 1.9, 4.0],
+            [13.3, 7.1, 10.8, 12.1, 15.6, 9.2],
+            [11.1, 8.6, 14.0, 13.9, 12.7, 3.6]
+        ]),
+        epsilon = 1e-5
+    );
+    assert_relative_eq!(
+        prewitt(&matrix, Axis(1), BorderMode::Reflect),
+        arr2(&[
+            [2.4, -2.1, -3.6, 11.8, 1.8, -9.1],
+            [2.5, 1.0, -3.6, 4.6, 1.2, -5.5],
+            [-0.3, 0.4, -2.4, -0.4, 3.3, 0.6],
+            [-2.8, -3.0, 3.9, 1.4, -3.7, -1.0],
+            [-5.4, -9.2, 10.2, 6.3, -10.1, -2.4]
+        ]),
+        epsilon = 1e-5
+    );
+
+    let a: Array1<f32> = (0..720).map(|v| v as f32 / 50.0).collect();
+    let mut a = a.into_shape((10, 9, 8)).unwrap();
+    a[(0, 0, 0)] = 0.2;
+    a[(3, 3, 3)] = 1.0;
+
+    let ans = prewitt(&a, Axis(0), BorderMode::Reflect);
+    assert_relative_eq!(
+        ans.slice(s![0, .., ..]),
+        arr2(&[
+            [12.16, 12.56, 12.96, 12.96, 12.96, 12.96, 12.96, 12.96],
+            [12.56, 12.76, 12.96, 12.96, 12.96, 12.96, 12.96, 12.96],
+            [12.96, 12.96, 12.96, 12.96, 12.96, 12.96, 12.96, 12.96],
+            [12.96, 12.96, 12.96, 12.96, 12.96, 12.96, 12.96, 12.96],
+            [12.96, 12.96, 12.96, 12.96, 12.96, 12.96, 12.96, 12.96],
+            [12.96, 12.96, 12.96, 12.96, 12.96, 12.96, 12.96, 12.96],
+            [12.96, 12.96, 12.96, 12.96, 12.96, 12.96, 12.96, 12.96],
+            [12.96, 12.96, 12.96, 12.96, 12.96, 12.96, 12.96, 12.96],
+            [12.96, 12.96, 12.96, 12.96, 12.96, 12.96, 12.96, 12.96]
+        ]),
+        epsilon = 1e-5
+    );
+
+    let ans = prewitt(&a, Axis(1), BorderMode::Reflect);
+    assert_relative_eq!(
+        ans.slice(s![.., 0, ..]),
+        arr2(&[
+            [0.64, 1.04, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44],
+            [1.04, 1.24, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44],
+            [1.44, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44],
+            [1.44, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44],
+            [1.44, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44],
+            [1.44, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44],
+            [1.44, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44],
+            [1.44, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44],
+            [1.44, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44],
+            [1.44, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44, 1.44]
+        ]),
+        epsilon = 1e-5
+    );
+
+    let ans = prewitt(&a, Axis(2), BorderMode::Reflect);
+    assert_relative_eq!(
+        ans.slice(s![.., .., 0]),
+        arr2(&[
+            [-0.62, -0.22, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18],
+            [-0.22, -0.02, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18],
+            [0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18],
+            [0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18],
+            [0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18],
+            [0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18],
+            [0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18],
+            [0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18],
+            [0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18],
+            [0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18]
+        ]),
+        epsilon = 1e-5
+    );
+}
+
+#[test] // Results verified with SciPy. (v1.9.0)
+fn test_sobel() {
+    let a = arr1(&[2.0, 8.1, 0.5, 4.0, 1.1, 9.0, 9.0, 0.8]);
+    assert_relative_eq!(
+        sobel(&a, Axis(0), BorderMode::Reflect),
+        arr1(&[6.1, -1.5, -4.1, 0.6, 5.0, 7.9, -8.2, -8.2]),
+        epsilon = 1e-5
+    );
+
+    let matrix = arr2(&[
+        [1.5, 2.3, 0.7, 1.1, 6.0, 1.7],
+        [0.5, 1.3, 0.0, 0.1, 1.2, 0.7],
+        [0.4, 1.3, 2.7, 0.1, 0.8, 0.1],
+        [2.1, 0.1, 0.7, 0.1, 1.0, 2.8],
+        [5.7, 4.0, 1.8, 9.1, 4.8, 2.7],
+    ]);
+    assert_relative_eq!(
+        sobel(&matrix, Axis(0), BorderMode::Reflect),
+        arr2(&[
+            [-4.0, -3.7, -3.4, -7.5, -11.6, -7.8],
+            [-4.3, -1.1, 2.0, -5.2, -13.0, -10.0],
+            [3.6, -0.1, 0.2, 0.5, 1.7, 6.1],
+            [18.6, 9.8, 9.9, 21.1, 19.6, 11.8],
+            [14.7, 12.5, 15.1, 22.9, 16.5, 3.5]
+        ]),
+        epsilon = 1e-5
+    );
+    assert_relative_eq!(
+        sobel(&matrix, Axis(1), BorderMode::Reflect),
+        arr2(&[
+            [3.2, -2.9, -4.8, 17.1, 2.4, -13.4],
+            [3.3, 0.5, -4.8, 5.8, 1.8, -6.0],
+            [0.6, 2.7, -3.6, -2.3, 3.3, -0.1],
+            [-4.8, -4.4, 3.9, 1.7, -1., 0.8],
+            [-7.1, -13.1, 15.3, 9.3, -16.5, -4.5]
+        ]),
+        epsilon = 1e-5
+    );
 }

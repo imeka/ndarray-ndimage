@@ -9,7 +9,7 @@ It aims to:
 - avoid using `unsafe`. This is not an unbreakable rule. Its usage will be evaluated and dicussed in the pull requests.
 
 Currently available routines include:
-- Filters: convolve/1d, correlate/1d, gaussian_filter/1d, min/max_filter/1d, median_filter
+- Filters: convolve/1d, correlate/1d, gaussian_filter/1d, min/max_filter/1d, median_filter, prewitt, sobel
 - Fourier filters: none. Please use the excellent [`rustfft`] crate
 - Interpolation: spline_filter/1d
 - Measurements: label, label_histogram, largest_connected_components, most_frequent_label
