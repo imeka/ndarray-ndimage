@@ -1,7 +1,9 @@
 use ndarray::{s, Array, Array1, Array2, ArrayBase, Axis, Data, Dimension, Zip};
 use num_traits::{Float, FromPrimitive};
 
-use crate::array_like;
+use crate::{array_like, BorderMode};
+
+use super::{con_corr::inner_correlate1d, symmetry::SymmetryStateCheck};
 
 /// Gaussian filter for n-dimensional arrays.
 ///
@@ -12,6 +14,8 @@ use crate::array_like;
 /// * `order` - The order of the filter along all axes. An order of 0 corresponds to a convolution
 ///   with a Gaussian kernel. A positive order corresponds to a convolution with that derivative of
 ///   a Gaussian.
+/// * `mode` - Method that will be used to select the padded values. See the
+///   [`BorderMode`](crate::BorderMode) enum for more information.
 /// * `truncate` - Truncate the filter at this many standard deviations.
 ///
 /// **Panics** if one of the axis' lengths is lower than `truncate * sigma + 0.5`.
@@ -19,11 +23,13 @@ pub fn gaussian_filter<S, A, D>(
     data: &ArrayBase<S, D>,
     sigma: A,
     order: usize,
+    mode: BorderMode<A>,
     truncate: usize,
 ) -> Array<A, D>
 where
     S: Data<Elem = A>,
     A: Float + FromPrimitive + 'static,
+    for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
 {
     // We need 2 buffers because
@@ -35,7 +41,7 @@ where
 
     let weights = weights(sigma, order, truncate);
     for d in 0..data.ndim() {
-        _gaussian_filter1d(&data, &weights, Axis(d), &mut output);
+        inner_correlate1d(&data, &weights, Axis(d), mode, 0, &mut output);
         if d != data.ndim() - 1 {
             std::mem::swap(&mut output, &mut data);
         }
@@ -45,103 +51,35 @@ where
 
 /// Gaussian filter for 1-dimensional arrays.
 ///
-/// Currently hardcoded with the `PadMode::Reflect` padding mode.
-///
 /// * `data` - The input N-D data.
 /// * `sigma` - Standard deviation for Gaussian kernel.
+/// * `axis` - The axis of input along which to calculate.
 /// * `order` - The order of the filter along all axes. An order of 0 corresponds to a convolution
 ///   with a Gaussian kernel. A positive order corresponds to a convolution with that derivative of
 ///   a Gaussian.
+/// * `mode` - Method that will be used to select the padded values. See the
+///   [`BorderMode`](crate::BorderMode) enum for more information.
 /// * `truncate` - Truncate the filter at this many standard deviations.
-/// * `axis` - The axis of input along which to calculate.
 ///
 /// **Panics** if the axis length is lower than `truncate * sigma + 0.5`.
 pub fn gaussian_filter1d<S, A, D>(
     data: &ArrayBase<S, D>,
     sigma: A,
-    order: usize,
-    truncate: usize,
     axis: Axis,
+    order: usize,
+    mode: BorderMode<A>,
+    truncate: usize,
 ) -> Array<A, D>
 where
     S: Data<Elem = A>,
     A: Float + FromPrimitive + 'static,
+    for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
 {
     let weights = weights(sigma, order, truncate);
     let mut output = array_like(&data, data.dim(), A::zero());
-    _gaussian_filter1d(data, &weights, axis, &mut output);
+    inner_correlate1d(data, &weights, axis, mode, 0, &mut output);
     output
-}
-
-fn _gaussian_filter1d<S, A, D>(
-    data: &ArrayBase<S, D>,
-    weights: &[A],
-    axis: Axis,
-    output: &mut Array<A, D>,
-) where
-    S: Data<Elem = A>,
-    A: Float + FromPrimitive,
-    D: Dimension,
-{
-    let half = weights.len() / 2;
-    let middle_weight = weights[half];
-
-    // TODO This can be made to work if the buffer code (see below) is more robust. It works in
-    // SciPy. One just needs to reflect the input data several times. However, this buffer
-    // exists only to handle the missing edges, so I really wonder if we could avoid it with
-    // some clever indexing. Might be super complex though.
-    let n = data.len_of(axis);
-    if half > n {
-        panic!("Data size is too small for the inputs (sigma and truncate)");
-    }
-
-    let mut buffer = vec![A::zero(); n + 2 * half];
-    let input_it = data.lanes(axis).into_iter();
-    let output_it = output.lanes_mut(axis).into_iter();
-    for (input, mut o) in input_it.zip(output_it) {
-        // TODO Remove this unsafe! This is easy to remove but I wasn't able to remove it and stay
-        // fast. For more information, please read the thread at
-        // https://users.rust-lang.org/t/scipy-gaussian-filter-port/62661
-        // TODO In all cases, we're supposed to call `correlate` (!)
-        unsafe {
-            // Prepare the 'reflect' buffer
-            let mut pos_b = 0;
-            let mut pos_i = half - 1;
-            for _ in 0..half {
-                *buffer.get_unchecked_mut(pos_b) = *input.uget(pos_i);
-                pos_b += 1;
-                pos_i = pos_i.wrapping_sub(1);
-            }
-            let mut pos_i = 0;
-            for _ in 0..n {
-                *buffer.get_unchecked_mut(pos_b) = *input.uget(pos_i);
-                pos_b += 1;
-                pos_i += 1;
-            }
-            pos_i = n - 1;
-            for _ in 0..half {
-                *buffer.get_unchecked_mut(pos_b) = *input.uget(pos_i);
-                pos_b += 1;
-                pos_i = pos_i.wrapping_sub(1);
-            }
-
-            // Convolve the input data with the weights array.
-            for idx in 0..n {
-                let s = half + idx;
-                let mut pos_l = s - 1;
-                let mut pos_r = s + 1;
-
-                let mut sum = *buffer.get_unchecked(s) * middle_weight;
-                for &w in &weights[half + 1..] {
-                    sum = sum + (*buffer.get_unchecked(pos_l) + *buffer.get_unchecked(pos_r)) * w;
-                    pos_l = pos_l.wrapping_sub(1);
-                    pos_r += 1;
-                }
-                *o.uget_mut(idx) = sum;
-            }
-        }
-    }
 }
 
 /// Computes a 1-D Gaussian convolution kernel.

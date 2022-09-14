@@ -2,7 +2,7 @@ use ndarray::{Array, ArrayBase, Axis, Data, Dimension, ScalarOperand};
 use num_traits::{Float, FromPrimitive};
 
 use super::{con_corr::inner_correlate1d, symmetry::SymmetryStateCheck};
-use crate::BorderMode;
+use crate::{array_like, BorderMode};
 
 /// Calculate a Prewitt filter.
 ///
@@ -19,15 +19,19 @@ where
 {
     // TODO Warn the user to NOT call this function with unsigned data
     let mut weights = [-A::one(), A::zero(), A::one()];
-    let mut output = inner_correlate1d(&data.view(), &weights, axis, mode, 0);
+    let mut output = array_like(&data, data.dim(), A::zero());
+    inner_correlate1d(&data.view(), &weights, axis, mode, 0, &mut output);
     if data.ndim() == 1 {
         return output;
     }
 
     weights = [A::one(); 3];
-    for d in 0..data.ndim() {
-        if d != axis.index() {
-            output = inner_correlate1d(&output.view(), &weights, Axis(d), mode, 0);
+    let indices: Vec<_> = (0..data.ndim()).filter(|&d| d != axis.index()).collect();
+    let mut data = output.clone();
+    for (i, d) in indices.into_iter().enumerate() {
+        inner_correlate1d(&data, &weights, Axis(d), mode, 0, &mut output);
+        if i != data.ndim() - 2 {
+            std::mem::swap(&mut output, &mut data);
         }
     }
     output

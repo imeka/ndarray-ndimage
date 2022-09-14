@@ -47,7 +47,9 @@ where
         origin -= 1;
     }
 
-    inner_correlate1d(data, weights.as_slice().unwrap(), axis, mode, origin)
+    let mut output = data.to_owned();
+    inner_correlate1d(data, weights.as_slice().unwrap(), axis, mode, origin, &mut output);
+    output
 }
 
 /// Calculate a 1-D correlation along the given axis.
@@ -82,13 +84,16 @@ where
         return data.to_owned() * weights[0];
     }
 
+    let mut output = data.to_owned();
     match weights.as_slice_memory_order() {
-        Some(s) => inner_correlate1d(data, s, axis, mode, origin),
+        Some(s) => inner_correlate1d(data, s, axis, mode, origin, &mut output),
         None => {
             let weights = weights.to_owned();
-            inner_correlate1d(data, weights.as_slice_memory_order().unwrap(), axis, mode, origin)
+            let weights = weights.as_slice_memory_order().unwrap();
+            inner_correlate1d(data, weights, axis, mode, origin, &mut output)
         }
-    }
+    };
+    output
 }
 
 pub(crate) fn inner_correlate1d<S, A, D>(
@@ -97,8 +102,8 @@ pub(crate) fn inner_correlate1d<S, A, D>(
     axis: Axis,
     mode: BorderMode<A>,
     origin: isize,
-) -> Array<A, D>
-where
+    output: &mut Array<A, D>,
+) where
     S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd,
     for<'a> &'a [A]: SymmetryStateCheck,
@@ -114,7 +119,6 @@ where
     let pad = vec![origin_check(weights.len(), origin, size1, size2)];
     let mut buffer = Array1::from_elem(n + pad[0][0] + pad[0][1], mode.init());
 
-    let mut output = data.to_owned();
     Zip::from(data.lanes(axis)).and(output.lanes_mut(axis)).for_each(|input, o| {
         pad_to(&input, &pad, mode, &mut buffer);
         let buffer = buffer.as_slice_memory_order().unwrap();
@@ -155,8 +159,6 @@ where
             }
         }
     });
-
-    output
 }
 
 /// Multidimensional convolution.
