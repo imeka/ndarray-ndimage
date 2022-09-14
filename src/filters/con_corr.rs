@@ -277,24 +277,8 @@ where
     for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
 {
-    // TODO Warn the user to NOT call this function with unsigned data
-    let mut weights = [-A::one(), A::zero(), A::one()];
-    let mut output = array_like(&data, data.dim(), A::zero());
-    inner_correlate1d(&data.view(), &weights, axis, mode, 0, &mut output);
-    if data.ndim() == 1 {
-        return output;
-    }
-
-    weights = [A::one(); 3];
-    let indices: Vec<_> = (0..data.ndim()).filter(|&d| d != axis.index()).collect();
-    let mut data = output.clone();
-    for (i, d) in indices.into_iter().enumerate() {
-        inner_correlate1d(&data, &weights, Axis(d), mode, 0, &mut output);
-        if i != data.ndim() - 2 {
-            std::mem::swap(&mut output, &mut data);
-        }
-    }
-    output
+    let second_weights = [A::one(); 3];
+    inner_prewitt_sobel(data, axis, mode, &second_weights)
 }
 
 /// Calculate a Prewitt filter.
@@ -310,20 +294,34 @@ where
     for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
 {
-    // TODO Warn the user to NOT call this function with unsigned data
-    let mut weights = [-A::one(), A::zero(), A::one()];
+    let second_weights = [A::one(), A::from_u8(2).unwrap(), A::one()];
+    inner_prewitt_sobel(data, axis, mode, &second_weights)
+}
+
+fn inner_prewitt_sobel<S, A, D>(
+    data: &ArrayBase<S, D>,
+    axis: Axis,
+    mode: BorderMode<A>,
+    second_weights: &[A],
+) -> Array<A, D>
+where
+    S: Data<Elem = A>,
+    A: Copy + Signed + ScalarOperand + FromPrimitive + PartialOrd,
+    for<'a> &'a [A]: SymmetryStateCheck,
+    D: Dimension,
+{
+    let weights = [-A::one(), A::zero(), A::one()];
     let mut output = array_like(&data, data.dim(), A::zero());
     inner_correlate1d(&data.view(), &weights, axis, mode, 0, &mut output);
     if data.ndim() == 1 {
         return output;
     }
 
-    weights = [A::one(), A::from_u8(2).unwrap(), A::one()];
     let indices: Vec<_> = (0..data.ndim()).filter(|&d| d != axis.index()).collect();
     let mut data = output.clone();
     for (i, d) in indices.into_iter().enumerate() {
         let axis = Axis(d);
-        inner_correlate1d(&data, &weights, axis, mode, 0, &mut output);
+        inner_correlate1d(&data, second_weights, axis, mode, 0, &mut output);
         if i != data.ndim() - 2 {
             std::mem::swap(&mut output, &mut data);
         }
