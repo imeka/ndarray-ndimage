@@ -1,5 +1,5 @@
 use ndarray::{Array, ArrayBase, Axis, Data, Dimension, ScalarOperand};
-use num_traits::{Float, FromPrimitive};
+use num_traits::{FromPrimitive, Signed};
 
 use super::{con_corr::inner_correlate1d, symmetry::SymmetryStateCheck};
 use crate::{array_like, BorderMode};
@@ -13,7 +13,7 @@ use crate::{array_like, BorderMode};
 pub fn prewitt<S, A, D>(data: &ArrayBase<S, D>, axis: Axis, mode: BorderMode<A>) -> Array<A, D>
 where
     S: Data<Elem = A>,
-    A: Float + ScalarOperand + FromPrimitive,
+    A: Copy + Signed + ScalarOperand + FromPrimitive + PartialOrd,
     for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
 {
