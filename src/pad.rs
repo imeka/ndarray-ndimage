@@ -232,11 +232,16 @@ pub fn pad_to<S, A, D>(
             for d in 0..data.ndim() {
                 let start = pad[d][0];
                 let end = start + data.shape()[d];
+                let real_end = output.shape()[d];
                 Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
                     let left = lane[start];
                     let right = lane[end - 1];
-                    lane.slice_mut(s![..start]).fill(left);
-                    lane.slice_mut(s![end..]).fill(right);
+                    for i in 0..start {
+                        lane[i] = left;
+                    }
+                    for i in end..real_end {
+                        lane[i] = right;
+                    }
                 });
             }
         }
