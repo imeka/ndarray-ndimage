@@ -32,6 +32,9 @@ where
     for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
 {
+    let weights = weights(sigma, order, truncate);
+    let half = weights.len() / 2;
+
     // We need 2 buffers because
     // * We're reading neignbors so we can't read and write on the same location.
     // * The process is applied for each axis on the result of the previous process.
@@ -39,8 +42,15 @@ where
     let mut data = data.to_owned();
     let mut output = array_like(&data, data.dim(), A::zero());
 
-    let weights = weights(sigma, order, truncate);
     for d in 0..data.ndim() {
+        // TODO This can be made to work if the ByIndices padding is more robust. It works in
+        // SciPy. One just needs to reflect the input data several times. It currently crashes in
+        // `PadMode::indices()` because of an integer underflow.
+        let n = data.len_of(Axis(d));
+        if half > n {
+            panic!("Data size is too small for the inputs (sigma and truncate)");
+        }
+
         inner_correlate1d(&data, &weights, Axis(d), mode, 0, &mut output);
         if d != data.ndim() - 1 {
             std::mem::swap(&mut output, &mut data);

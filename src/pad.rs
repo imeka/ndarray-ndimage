@@ -113,6 +113,8 @@ impl<T: PartialEq> PadMode<T> {
     }
 
     fn indices(&self, size: usize, pad_left: usize, pad_right: usize) -> (Vec<usize>, Vec<usize>) {
+        // If we ever refactor this block to something more robust (there a panic when pad > size),
+        // remove the TODO in gaussian.rs and the "should_panic" test in filters.rs.
         match *self {
             PadMode::Reflect => (
                 (1..=pad_left).rev().map(|i| i + pad_left).collect(),
