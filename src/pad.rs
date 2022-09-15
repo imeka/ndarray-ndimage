@@ -213,13 +213,17 @@ pub fn pad_to<S, A, D>(
             for d in 0..data.ndim() {
                 let start = pad[d][0];
                 let end = start + data.shape()[d];
+                let data_zone = s![start..end];
+                let real_end = output.shape()[d];
                 let mut buffer =
                     if mode.needs_buffer() { Array1::zeros(end - start) } else { Array1::zeros(0) };
                 Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
-                    let v = mode.dynamic_value(lane.slice(s![start..end]), &mut buffer);
-                    if v != A::zero() {
-                        lane.slice_mut(s![..start]).fill(v);
-                        lane.slice_mut(s![end..]).fill(v);
+                    let v = mode.dynamic_value(lane.slice(data_zone), &mut buffer);
+                    for i in 0..start {
+                        lane[i] = v;
+                    }
+                    for i in end..real_end {
+                        lane[i] = v;
                     }
                 });
             }
