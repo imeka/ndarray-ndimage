@@ -198,12 +198,14 @@ pub fn pad_to<S, A, D>(
         PadAction::ByIndices => {
             for d in 0..data.ndim() {
                 let pad = pad[d];
-                let (left_indices, right_indices) = mode.indices(data.shape()[d], pad[0], pad[1]);
+                let start = pad[0];
+                let end = start + data.shape()[d];
+                let (left_indices, right_indices) = mode.indices(data.shape()[d], start, pad[1]);
                 Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
                     for (i, &ii) in left_indices.iter().enumerate() {
                         lane[i] = lane[ii];
                     }
-                    for (i, &ii) in right_indices.iter().enumerate() {
+                    for (&ii, i) in right_indices.iter().zip(end..) {
                         lane[i] = lane[ii];
                     }
                 });
