@@ -125,10 +125,8 @@ pub(crate) fn inner_correlate1d<S, A, D>(
 
         match symmetry_state {
             SymmetryState::NonSymmetric => {
-                Zip::indexed(o).for_each(|i, o| {
-                    // An unsafe here actually help
-                    // acc + unsafe { *buffer.get_unchecked(i) } * w
-                    *o = weights.iter().zip(i..).fold(A::zero(), |acc, (&w, i)| acc + buffer[i] * w)
+                Zip::from(o).for_each(|o| {
+                    *o = weights.iter().zip(buffer).fold(A::zero(), |acc, (&w, &b)| acc + b * w)
                 });
             }
             SymmetryState::Symmetric => {
@@ -137,10 +135,13 @@ pub(crate) fn inner_correlate1d<S, A, D>(
                     let mut left = i;
                     let mut right = i + size_2;
                     *o = weights[..size1].iter().fold(middle, |acc, &w| {
-                        let ans = acc + (buffer[left] + buffer[right]) * w;
+                        // let ans = acc + (buffer[left] + buffer[right]) * w;
+                        let ans = unsafe {
+                            (*buffer.get_unchecked(left) + *buffer.get_unchecked(right)) * w
+                        };
                         left += 1;
                         right -= 1;
-                        ans
+                        acc + ans
                     })
                 });
             }
@@ -150,10 +151,13 @@ pub(crate) fn inner_correlate1d<S, A, D>(
                     let mut left = i;
                     let mut right = i + size_2;
                     *o = weights[..size1].iter().fold(middle, |acc, &w| {
-                        let ans = acc + (buffer[left] - buffer[right]) * w;
+                        // let ans = acc + (buffer[left] - buffer[right]) * w;
+                        let ans = unsafe {
+                            (*buffer.get_unchecked(left) - *buffer.get_unchecked(right)) * w
+                        };
                         left += 1;
                         right -= 1;
-                        ans
+                        acc + ans
                     })
                 });
             }
