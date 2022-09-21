@@ -125,8 +125,11 @@ pub(crate) fn inner_correlate1d<S, A, D>(
 
         match symmetry_state {
             SymmetryState::NonSymmetric => {
-                Zip::from(o).for_each(|o| {
-                    *o = weights.iter().zip(buffer).fold(A::zero(), |acc, (&w, &b)| acc + b * w)
+                Zip::indexed(o).for_each(|i, o| {
+                    *o = weights
+                        .iter()
+                        .zip(&buffer[i..])
+                        .fold(A::zero(), |acc, (&w, &b)| acc + b * w)
                 });
             }
             SymmetryState::Symmetric => {
