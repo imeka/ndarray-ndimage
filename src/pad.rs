@@ -78,7 +78,8 @@ impl<T: PartialEq> PadMode<T> {
             PadMode::Maximum | PadMode::Mean | PadMode::Median | PadMode::Minimum => {
                 PadAction::ByLane
             }
-            PadMode::Reflect | PadMode::Symmetric | PadMode::Wrap => PadAction::ByIndices,
+            PadMode::Reflect | PadMode::Symmetric => PadAction::ByReflecting,
+            PadMode::Wrap => PadAction::ByWrapping,
             PadMode::Edge => PadAction::BySides,
         }
     }
@@ -111,31 +112,14 @@ impl<T: PartialEq> PadMode<T> {
     fn needs_buffer(&self) -> bool {
         *self == PadMode::Median
     }
-
-    fn indices(&self, size: usize, pad_left: usize, pad_right: usize) -> (Vec<usize>, Vec<usize>) {
-        match *self {
-            PadMode::Reflect => (
-                (1..=pad_left).rev().map(|i| i + pad_left).collect(),
-                (size - pad_right - 1..size - 1).rev().map(|i| i + pad_left).collect(),
-            ),
-            PadMode::Symmetric => (
-                (0..pad_left).rev().map(|i| i + pad_left).collect(),
-                (size - pad_right..size).rev().map(|i| i + pad_left).collect(),
-            ),
-            PadMode::Wrap => (
-                (size - pad_left..size).map(|i| i + pad_left).collect(),
-                (0..pad_right).map(|i| i + pad_left).collect(),
-            ),
-            _ => panic!("Only Reflect, Symmetric and Wrap have indices"),
-        }
-    }
 }
 
 #[derive(PartialEq)]
 enum PadAction {
     StopAfterCopy,
     ByLane,
-    ByIndices,
+    ByReflecting,
+    ByWrapping,
     BySides,
 }
 
@@ -185,45 +169,87 @@ pub fn pad_to<S, A, D>(
 
     // Select portion of padded array that needs to be copied from the original array.
     output
-        .view_mut()
         .slice_each_axis_mut(|ad| {
             let AxisDescription { axis, len, .. } = ad;
-            let d = axis.index();
-            Slice::from(pad[d][0]..len - pad[d][1])
+            let pad = pad[axis.index()];
+            Slice::from(pad[0]..len - pad[1])
         })
         .assign(data);
 
     match mode.action() {
         PadAction::StopAfterCopy => { /* Nothing */ }
-        PadAction::ByIndices => {
+        PadAction::ByReflecting => {
+            let edge_offset = match mode {
+                PadMode::Reflect => 1,
+                PadMode::Symmetric => 0,
+                _ => unreachable!(),
+            };
             for d in 0..data.ndim() {
                 let pad = pad[d];
-                let start = pad[0];
-                let end = start + data.shape()[d];
-                let (left_indices, right_indices) = mode.indices(data.shape()[d], pad[0], pad[1]);
-                let mut buffer = Array1::zeros(output.shape()[d]);
-                Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
-                    buffer.assign(&lane);
-                    Zip::from(lane.slice_mut(s![..start])).and(&left_indices).for_each(|e, &i| {
-                        *e = buffer[i];
-                    });
-                    Zip::from(lane.slice_mut(s![end..])).and(&right_indices).for_each(|e, &i| {
-                        *e = buffer[i];
-                    });
-                });
+                let d = Axis(d);
+
+                let (mut left, rest) = output.view_mut().split_at(d, pad[0]);
+                left.assign(&rest.slice_each_axis(|ad| {
+                    if ad.axis == d {
+                        Slice::from(edge_offset..edge_offset + pad[0]).step_by(-1)
+                    } else {
+                        Slice::from(..)
+                    }
+                }));
+
+                let idx = output.len_of(d) - pad[1];
+                let (rest, mut right) = output.view_mut().split_at(d, idx);
+                right.assign(&rest.slice_each_axis(|ad| {
+                    let AxisDescription { axis, len, .. } = ad;
+                    if axis == d {
+                        Slice::from(len - pad[1] - edge_offset..len - edge_offset).step_by(-1)
+                    } else {
+                        Slice::from(..)
+                    }
+                }));
+            }
+        }
+        PadAction::ByWrapping => {
+            for d in 0..data.ndim() {
+                let pad = pad[d];
+                let d = Axis(d);
+
+                let (mut left, rest) = output.view_mut().split_at(d, pad[0]);
+                left.assign(&rest.slice_each_axis(|ad| {
+                    let AxisDescription { axis, len, .. } = ad;
+                    if axis == d {
+                        Slice::from(len - pad[0] - pad[1]..len - pad[1])
+                    } else {
+                        Slice::from(..)
+                    }
+                }));
+
+                let idx = output.len_of(d) - pad[1];
+                let (rest, mut right) = output.view_mut().split_at(d, idx);
+                right.assign(&rest.slice_each_axis(|ad| {
+                    if ad.axis == d {
+                        Slice::from(pad[0]..pad[0] + pad[1])
+                    } else {
+                        Slice::from(..)
+                    }
+                }));
             }
         }
         PadAction::ByLane => {
             for d in 0..data.ndim() {
                 let start = pad[d][0];
                 let end = start + data.shape()[d];
+                let data_zone = s![start..end];
+                let real_end = output.shape()[d];
                 let mut buffer =
                     if mode.needs_buffer() { Array1::zeros(end - start) } else { Array1::zeros(0) };
                 Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
-                    let v = mode.dynamic_value(lane.slice(s![start..end]), &mut buffer);
-                    if v != A::zero() {
-                        lane.slice_mut(s![..start]).fill(v);
-                        lane.slice_mut(s![end..]).fill(v);
+                    let v = mode.dynamic_value(lane.slice(data_zone), &mut buffer);
+                    for i in 0..start {
+                        lane[i] = v;
+                    }
+                    for i in end..real_end {
+                        lane[i] = v;
                     }
                 });
             }
@@ -232,11 +258,16 @@ pub fn pad_to<S, A, D>(
             for d in 0..data.ndim() {
                 let start = pad[d][0];
                 let end = start + data.shape()[d];
+                let real_end = output.shape()[d];
                 Zip::from(output.lanes_mut(Axis(d))).for_each(|mut lane| {
                     let left = lane[start];
                     let right = lane[end - 1];
-                    lane.slice_mut(s![..start]).fill(left);
-                    lane.slice_mut(s![end..]).fill(right);
+                    for i in 0..start {
+                        lane[i] = left;
+                    }
+                    for i in end..real_end {
+                        lane[i] = right;
+                    }
                 });
             }
         }
