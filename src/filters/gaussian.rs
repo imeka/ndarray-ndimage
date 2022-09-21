@@ -43,9 +43,10 @@ where
     let mut output = array_like(&data, data.dim(), A::zero());
 
     for d in 0..data.ndim() {
-        // TODO This can be made to work if the ByIndices padding is more robust. It works in
-        // SciPy. One just needs to reflect the input data several times. It currently crashes in
-        // `PadMode::indices()` because of an integer underflow.
+        // TODO This can be made to work if the padding modes (`reflect`, `symmetric`, `wrap`) are
+        // more robust. One just needs to reflect the input data several times if the `weights`
+        // length is greater than the input array. It works in SciPy because they are looping on a
+        // size variable instead of running the algo only once like we do.
         let n = data.len_of(Axis(d));
         if half > n {
             panic!("Data size is too small for the inputs (sigma and truncate)");
