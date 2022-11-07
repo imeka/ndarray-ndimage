@@ -33,8 +33,16 @@ pub type Mask = Array3<bool>;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Kernel3d {
     /// Diamond/star kernel (center and sides).
+    ///
+    /// Equivalent to `generate_binary_structure(3, 1)`
     Star,
+    /// Ball kernel (center and sides).
+    ///
+    /// Equivalent to `generate_binary_structure(3, 2)`
+    Ball,
     /// 3x3 cube.
+    ///
+    /// Equivalent to `generate_binary_structure(3, 3)`
     Full,
 }
 

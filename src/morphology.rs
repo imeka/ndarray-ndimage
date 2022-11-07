@@ -10,33 +10,39 @@ impl Kernel3d {
     #[rustfmt::skip]
     fn erode(&self, from: ArrayView3<bool>, into: ArrayViewMut3<bool>) {
         match *self {
-            Kernel3d::Full => {
+            Kernel3d::Full => Zip::from(from.windows((3, 3, 3))).map_assign_into(into, |w| {
                 // TODO This is incredibly ugly but this is much faster (3x) than the Zip
-                //Zip::from(from.windows((3, 3, 3)))
-                //    .map_assign_into(into, |w| Zip::from(w).all(|&m| m));
-                Zip::from(from.windows((3, 3, 3))).map_assign_into(into, |w| {
-                    w[(0, 0, 0)] && w[(0, 0, 1)] && w[(0, 0, 2)]
-                 && w[(0, 1, 0)] && w[(0, 1, 1)] && w[(0, 1, 2)]
-                 && w[(0, 2, 0)] && w[(0, 2, 1)] && w[(0, 2, 2)]
-                 && w[(1, 0, 0)] && w[(1, 0, 1)] && w[(1, 0, 2)]
-                 && w[(1, 1, 0)] && w[(1, 1, 1)] && w[(1, 1, 2)]
-                 && w[(1, 2, 0)] && w[(1, 2, 1)] && w[(1, 2, 2)]
-                 && w[(2, 0, 0)] && w[(2, 0, 1)] && w[(2, 0, 2)]
-                 && w[(2, 1, 0)] && w[(2, 1, 1)] && w[(2, 1, 2)]
-                 && w[(2, 2, 0)] && w[(2, 2, 1)] && w[(2, 2, 2)]
-                })
-            }
+                // |w| Zip::from(w).all(|&m| m)
+                   w[(0, 0, 0)] && w[(0, 0, 1)] && w[(0, 0, 2)]
+                && w[(0, 1, 0)] && w[(0, 1, 1)] && w[(0, 1, 2)]
+                && w[(0, 2, 0)] && w[(0, 2, 1)] && w[(0, 2, 2)]
+                && w[(1, 0, 0)] && w[(1, 0, 1)] && w[(1, 0, 2)]
+                && w[(1, 1, 0)] && w[(1, 1, 1)] && w[(1, 1, 2)]
+                && w[(1, 2, 0)] && w[(1, 2, 1)] && w[(1, 2, 2)]
+                && w[(2, 0, 0)] && w[(2, 0, 1)] && w[(2, 0, 2)]
+                && w[(2, 1, 0)] && w[(2, 1, 1)] && w[(2, 1, 2)]
+                && w[(2, 2, 0)] && w[(2, 2, 1)] && w[(2, 2, 2)]
+            }),
+            Kernel3d::Ball => Zip::from(from.windows((3, 3, 3))).map_assign_into(into, |w| {
+                                   w[(0, 0, 1)]
+                && w[(0, 1, 0)] && w[(0, 1, 1)] && w[(0, 1, 2)]
+                                && w[(0, 2, 1)]
+                && w[(1, 0, 0)] && w[(1, 0, 1)] && w[(1, 0, 2)]
+                && w[(1, 1, 0)] && w[(1, 1, 1)] && w[(1, 1, 2)]
+                && w[(1, 2, 0)] && w[(1, 2, 1)] && w[(1, 2, 2)]
+                                && w[(2, 0, 1)]
+                && w[(2, 1, 0)] && w[(2, 1, 1)] && w[(2, 1, 2)]
+                                && w[(2, 2, 1)]
+            }),
             Kernel3d::Star => Zip::from(from.windows((3, 3, 3))).map_assign_into(into, |w| {
                 // This ugly condition is equivalent to
                 // *mask = !w.iter().zip(&kernel).any(|(w, k)| !w & k)
                 // but it's around 5x faster because there's no branch misprediction
-                w[(0, 1, 1)]
-                    && w[(1, 0, 1)]
-                    && w[(1, 1, 0)]
-                    && w[(1, 1, 1)]
-                    && w[(1, 1, 2)]
-                    && w[(1, 2, 1)]
-                    && w[(2, 1, 1)]
+                                   w[(0, 1, 1)]
+                                && w[(1, 0, 1)]
+                && w[(1, 1, 0)] && w[(1, 1, 1)] && w[(1, 1, 2)]
+                                && w[(1, 2, 1)]
+                                && w[(2, 1, 1)]
             }),
         }
     }
@@ -48,32 +54,39 @@ impl Kernel3d {
     #[rustfmt::skip]
     fn dilate(&self, from: ArrayView3<bool>, into: ArrayViewMut3<bool>) {
         match *self {
-            Kernel3d::Full => {
-                // TODO This is incredibly ugly but this is much faster (6x) than the Zip
-                //Zip::from(from.windows((3, 3, 3))).map_assign_into(into, |w| w.iter().any(|&w| w))
-                Zip::from(from.windows((3, 3, 3))).map_assign_into(into, |w| {
-                    w[(0, 0, 0)] || w[(0, 0, 1)] || w[(0, 0, 2)]
-                 || w[(0, 1, 0)] || w[(0, 1, 1)] || w[(0, 1, 2)]
-                 || w[(0, 2, 0)] || w[(0, 2, 1)] || w[(0, 2, 2)]
-                 || w[(1, 0, 0)] || w[(1, 0, 1)] || w[(1, 0, 2)]
-                 || w[(1, 1, 0)] || w[(1, 1, 1)] || w[(1, 1, 2)]
-                 || w[(1, 2, 0)] || w[(1, 2, 1)] || w[(1, 2, 2)]
-                 || w[(2, 0, 0)] || w[(2, 0, 1)] || w[(2, 0, 2)]
-                 || w[(2, 1, 0)] || w[(2, 1, 1)] || w[(2, 1, 2)]
-                 || w[(2, 2, 0)] || w[(2, 2, 1)] || w[(2, 2, 2)]
-                })
-            }
+            Kernel3d::Full => Zip::from(from.windows((3, 3, 3))).map_assign_into(into, |w| {
+                // This is incredibly ugly but this is much faster (6x) than the Zip
+                // |w| w.iter().any(|&w| w))
+                   w[(0, 0, 0)] || w[(0, 0, 1)] || w[(0, 0, 2)]
+                || w[(0, 1, 0)] || w[(0, 1, 1)] || w[(0, 1, 2)]
+                || w[(0, 2, 0)] || w[(0, 2, 1)] || w[(0, 2, 2)]
+                || w[(1, 0, 0)] || w[(1, 0, 1)] || w[(1, 0, 2)]
+                || w[(1, 1, 0)] || w[(1, 1, 1)] || w[(1, 1, 2)]
+                || w[(1, 2, 0)] || w[(1, 2, 1)] || w[(1, 2, 2)]
+                || w[(2, 0, 0)] || w[(2, 0, 1)] || w[(2, 0, 2)]
+                || w[(2, 1, 0)] || w[(2, 1, 1)] || w[(2, 1, 2)]
+                || w[(2, 2, 0)] || w[(2, 2, 1)] || w[(2, 2, 2)]
+            }),
+            Kernel3d::Ball => Zip::from(from.windows((3, 3, 3))).map_assign_into(into, |w| {
+                                   w[(0, 0, 1)]
+                || w[(0, 1, 0)] || w[(0, 1, 1)] || w[(0, 1, 2)]
+                                || w[(0, 2, 1)]
+                || w[(1, 0, 0)] || w[(1, 0, 1)] || w[(1, 0, 2)]
+                || w[(1, 1, 0)] || w[(1, 1, 1)] || w[(1, 1, 2)]
+                || w[(1, 2, 0)] || w[(1, 2, 1)] || w[(1, 2, 2)]
+                                || w[(2, 0, 1)]
+                || w[(2, 1, 0)] || w[(2, 1, 1)] || w[(2, 1, 2)]
+                                || w[(2, 2, 1)]
+            }),
             Kernel3d::Star => Zip::from(from.windows((3, 3, 3))).map_assign_into(into, |w| {
                 // This ugly condition is equivalent to
-                // *mask = w.iter().zip(&kernel).any(|(w, k)| w & k)
+                // |(w, k)| w & k
                 // but it's around 5x faster because there's no branch misprediction
-                w[(0, 1, 1)]
-                    || w[(1, 0, 1)]
-                    || w[(1, 1, 0)]
-                    || w[(1, 1, 1)]
-                    || w[(1, 1, 2)]
-                    || w[(1, 2, 1)]
-                    || w[(2, 1, 1)]
+                                   w[(0, 1, 1)]
+                                || w[(1, 0, 1)]
+                || w[(1, 1, 0)] || w[(1, 1, 1)] || w[(1, 1, 2)]
+                                || w[(1, 2, 1)]
+                                || w[(2, 1, 1)]
             }),
         }
     }
