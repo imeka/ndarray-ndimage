@@ -49,6 +49,7 @@ fn test_binary_erosion_hole() {
     gt.slice_mut(s![5, 5, 4..7]).fill(false);
 
     assert_eq!(gt, binary_erosion(&mask, Kernel3d::Star, 1));
+    assert_eq!(gt, binary_erosion(&mask, Kernel3d::Generic(Kernel3d::Star.array().view()), 1));
 }
 
 #[test] // Results verified with the `binary_erosion` function from SciPy. (v1.7.0)
@@ -64,6 +65,7 @@ fn test_binary_erosion_ball_kernel() {
     gt.slice_mut(s![4..7; 2, 4..7; 2, 4..7; 2]).fill(true);
 
     assert_eq!(gt, binary_erosion(&mask, Kernel3d::Ball, 1));
+    assert_eq!(gt, binary_erosion(&mask, Kernel3d::Generic(Kernel3d::Ball.array().view()), 1));
 }
 
 #[test] // Results verified with the `binary_erosion` function from SciPy. (v1.7.0)
@@ -78,6 +80,7 @@ fn test_binary_erosion_full_kernel() {
     gt.slice_mut(s![4..7, 4..7, 4..7]).fill(false);
 
     assert_eq!(gt, binary_erosion(&mask, Kernel3d::Full, 1));
+    assert_eq!(gt, binary_erosion(&mask, Kernel3d::Generic(Kernel3d::Full.array().view()), 1));
 }
 
 #[test] // Results verified with the `binary_dilation` function from SciPy. (v1.7.0)
@@ -113,6 +116,7 @@ fn test_binary_dilation_plain() {
     gt.slice_mut(s![2..w - 1, h - 1, 2..d - 1]).fill(true);
 
     assert_eq!(gt, binary_dilation(&mask.view(), Kernel3d::Star, 1));
+    assert_eq!(gt, binary_dilation(&mask, Kernel3d::Generic(Kernel3d::Star.array().view()), 1));
 
     let mut mask = Mask::from_elem((w, h, d), false);
     mask.slice_mut(s![4, 4, 4..]).fill(true);
@@ -120,18 +124,21 @@ fn test_binary_dilation_plain() {
     gt.slice_mut(s![3..6, 3..6, 3..]).fill(true);
     gt.slice_mut(s![3..6; 2, 3..6; 2, 3]).fill(false);
     assert_eq!(gt, binary_dilation(&mask.view(), Kernel3d::Ball, 1));
+    assert_eq!(gt, binary_dilation(&mask, Kernel3d::Generic(Kernel3d::Ball.array().view()), 1));
 
     let mut mask = Mask::from_elem((w, h, d), false);
     mask[(4, 4, 4)] = true;
     let mut gt = Mask::from_elem((w, h, d), false);
     gt.slice_mut(s![2.., 2.., 2..]).fill(true);
     assert_eq!(gt, binary_dilation(&mask.view(), Kernel3d::Full, 2));
+    assert_eq!(gt, binary_dilation(&mask, Kernel3d::Generic(Kernel3d::Full.array().view()), 2));
 
     let mut mask = Mask::from_elem((w, h, d), false);
     mask[(4, 5, 5)] = true;
     let mut gt = Mask::from_elem((w, h, d), false);
     gt.slice_mut(s![1.., 2.., 2..]).fill(true);
     assert_eq!(gt, binary_dilation(&mask.view(), Kernel3d::Full, 3));
+    assert_eq!(gt, binary_dilation(&mask, Kernel3d::Generic(Kernel3d::Full.array().view()), 3));
 }
 
 #[test] // Results verified with the `binary_dilation` function from SciPy. (v1.7.0)
