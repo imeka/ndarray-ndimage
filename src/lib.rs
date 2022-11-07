@@ -3,7 +3,7 @@
 //! The `ndarray-image` crate provides multidimensional image processing for `ArrayBase`,
 //! the *n*-dimensional array data structure provided by [`ndarray`].
 
-use ndarray::{Array, Array3, ArrayBase, Data, Dimension, Ix3, ShapeBuilder};
+use ndarray::{arr3, Array, Array3, ArrayBase, ArrayView3, Data, Dimension, Ix3, ShapeBuilder};
 
 mod filters;
 mod interpolation;
@@ -31,7 +31,7 @@ pub type Mask = Array3<bool>;
 
 /// 3D common kernels. Also called Structuring Element.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Kernel3d {
+pub enum Kernel3d<'a> {
     /// Diamond/star kernel (center and sides).
     ///
     /// Equivalent to `generate_binary_structure(3, 1)`
@@ -40,10 +40,40 @@ pub enum Kernel3d {
     ///
     /// Equivalent to `generate_binary_structure(3, 2)`
     Ball,
-    /// 3x3 cube.
+    /// 3x3x3 cube.
     ///
     /// Equivalent to `generate_binary_structure(3, 3)`
     Full,
+    /// Generic kernel of any 3D size.
+    Generic(ArrayView3<'a, bool>),
+}
+
+impl<'a> Kernel3d<'a> {
+    /// Return the kernel dimension.
+    pub fn dim(&self) -> (usize, usize, usize) {
+        match *self {
+            Kernel3d::Star | Kernel3d::Ball | Kernel3d::Full => (3, 3, 3),
+            Kernel3d::Generic(k) => k.dim(),
+        }
+    }
+
+    /// Return the actual 3D array.
+    pub fn array(&self) -> Array3<bool> {
+        match *self {
+            Kernel3d::Star => arr3(&[
+                [[false, false, false], [false, true, false], [false, false, false]],
+                [[false, true, false], [true, true, true], [false, true, false]],
+                [[false, false, false], [false, true, false], [false, false, false]],
+            ]),
+            Kernel3d::Ball => arr3(&[
+                [[false, true, false], [true, true, true], [false, true, false]],
+                [[true, true, true], [true, true, true], [true, true, true]],
+                [[false, true, false], [true, true, true], [false, true, false]],
+            ]),
+            Kernel3d::Full => Array3::from_elem((3, 3, 3), true),
+            Kernel3d::Generic(k) => k.to_owned(),
+        }
+    }
 }
 
 /// Utilitary function that returns a new *n*-dimensional array of dimension `shape` with the same
