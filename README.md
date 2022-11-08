@@ -1,7 +1,7 @@
 ndarray-ndimage
 =============
 
-This crate provides multidimensional image processing for [`ndarray`]'s `ArrayBase` type.
+This crate provides multidimensional image processing for [`ndarray`]'s `ArrayBase` type. It is mainly focussed on 3D arrays/images for now, but some functions are available on on n-d arrays.
 
 It aims to:
 - be a Rust replacement for [`scipy.ndimage`] with some other tools like [`numpy.pad`] and anything else relevant to image processing. We do not want all options and arguments offered by `scipy.ndimage` because some of them are incompatible with Rust. We hope to offer the most used ones.
@@ -13,7 +13,7 @@ Currently available routines include:
 - Fourier filters: none. Please use the excellent [`rustfft`] crate
 - Interpolation: spline_filter/1d
 - Measurements: label, label_histogram, largest_connected_components, most_frequent_label
-- Morphology: binary_closing, binary_dilation, binary_erosion, binary_opening
+- Morphology: binary_closing, binary_dilation, binary_erosion, binary_opening. Works on all kernels (structuring elements) but only the non-generic ones are extremely fast.
 - Padding: Almost all modes. Work for all dimensions and types.
 
 **This crate is a work-in-progress.** Only a subset of the `scipy.ndimage` functions are provided and most of them offer less options than SciPy. Some are offered only in 3D, with less boundary modes, with only 2 types of structuring element, only for binary data, only for f64, etc.
@@ -29,13 +29,13 @@ Using with Cargo
 ```toml
 [dependencies]
 ndarray = "0.15"
-ndarray-ndimage = "0.1"
+ndarray-ndimage = "0.2"
 ```
 
 Contributing
 ============
 
-`ndarray-ndimage` needs your help to grow. Please feel free to create issues and submit PRs. Since it is based on `scipy.ndimage`, it is easy to port new functions and tests.
+`ndarray-ndimage` needs your help to grow. Please feel free to create issues and submit PRs. Since it is based on `scipy.ndimage`, it is easy to port new functions and tests. Reading Cython code is highly unpleasant; the joy comes from porting it to Rust!
 
 License
 =======
