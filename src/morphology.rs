@@ -2,42 +2,54 @@ use ndarray::{s, ArrayBase, ArrayView3, ArrayViewMut3, Data, Ix3, Zip};
 
 use crate::{array_like, dim_minus, Kernel3d, Mask};
 
-impl Kernel3d {
+impl<'a> Kernel3d<'a> {
     /// Erode the mask when at least one of the values doesn't respect the kernel.
     ///
     /// An erosion is defined either as `all(!(!w & k))` or `!any(!w & k)`. Thus, an empty kernel
     /// will always produce a full mask.
     #[rustfmt::skip]
     fn erode(&self, from: ArrayView3<bool>, into: ArrayViewMut3<bool>) {
+        let windows = from.windows(self.dim());
         match *self {
-            Kernel3d::Full => {
-                // TODO This is incredibly ugly but this is much faster (3x) than the Zip
-                //Zip::from(from.windows((3, 3, 3)))
-                //    .map_assign_into(into, |w| Zip::from(w).all(|&m| m));
-                Zip::from(from.windows((3, 3, 3))).map_assign_into(into, |w| {
-                    w[(0, 0, 0)] && w[(0, 0, 1)] && w[(0, 0, 2)]
-                 && w[(0, 1, 0)] && w[(0, 1, 1)] && w[(0, 1, 2)]
-                 && w[(0, 2, 0)] && w[(0, 2, 1)] && w[(0, 2, 2)]
-                 && w[(1, 0, 0)] && w[(1, 0, 1)] && w[(1, 0, 2)]
-                 && w[(1, 1, 0)] && w[(1, 1, 1)] && w[(1, 1, 2)]
-                 && w[(1, 2, 0)] && w[(1, 2, 1)] && w[(1, 2, 2)]
-                 && w[(2, 0, 0)] && w[(2, 0, 1)] && w[(2, 0, 2)]
-                 && w[(2, 1, 0)] && w[(2, 1, 1)] && w[(2, 1, 2)]
-                 && w[(2, 2, 0)] && w[(2, 2, 1)] && w[(2, 2, 2)]
-                })
-            }
-            Kernel3d::Star => Zip::from(from.windows((3, 3, 3))).map_assign_into(into, |w| {
+            Kernel3d::Full => Zip::from(windows).map_assign_into(into, |w| {
+                // This is incredibly ugly but this is much faster (3x) than the Zip
+                // |w| Zip::from(w).all(|&m| m)
+                   w[(0, 0, 0)] && w[(0, 0, 1)] && w[(0, 0, 2)]
+                && w[(0, 1, 0)] && w[(0, 1, 1)] && w[(0, 1, 2)]
+                && w[(0, 2, 0)] && w[(0, 2, 1)] && w[(0, 2, 2)]
+                && w[(1, 0, 0)] && w[(1, 0, 1)] && w[(1, 0, 2)]
+                && w[(1, 1, 0)] && w[(1, 1, 1)] && w[(1, 1, 2)]
+                && w[(1, 2, 0)] && w[(1, 2, 1)] && w[(1, 2, 2)]
+                && w[(2, 0, 0)] && w[(2, 0, 1)] && w[(2, 0, 2)]
+                && w[(2, 1, 0)] && w[(2, 1, 1)] && w[(2, 1, 2)]
+                && w[(2, 2, 0)] && w[(2, 2, 1)] && w[(2, 2, 2)]
+            }),
+            Kernel3d::Ball => Zip::from(windows).map_assign_into(into, |w| {
+                                   w[(0, 0, 1)]
+                && w[(0, 1, 0)] && w[(0, 1, 1)] && w[(0, 1, 2)]
+                                && w[(0, 2, 1)]
+                && w[(1, 0, 0)] && w[(1, 0, 1)] && w[(1, 0, 2)]
+                && w[(1, 1, 0)] && w[(1, 1, 1)] && w[(1, 1, 2)]
+                && w[(1, 2, 0)] && w[(1, 2, 1)] && w[(1, 2, 2)]
+                                && w[(2, 0, 1)]
+                && w[(2, 1, 0)] && w[(2, 1, 1)] && w[(2, 1, 2)]
+                                && w[(2, 2, 1)]
+            }),
+            Kernel3d::Star => Zip::from(windows).map_assign_into(into, |w| {
                 // This ugly condition is equivalent to
                 // *mask = !w.iter().zip(&kernel).any(|(w, k)| !w & k)
-                // but it's around 5x faster because there's no branch misprediction
-                w[(0, 1, 1)]
-                    && w[(1, 0, 1)]
-                    && w[(1, 1, 0)]
-                    && w[(1, 1, 1)]
-                    && w[(1, 1, 2)]
-                    && w[(1, 2, 1)]
-                    && w[(2, 1, 1)]
+                // but it's extremely faster because there's no branch misprediction
+                                   w[(0, 1, 1)]
+                                && w[(1, 0, 1)]
+                && w[(1, 1, 0)] && w[(1, 1, 1)] && w[(1, 1, 2)]
+                                && w[(1, 2, 1)]
+                                && w[(2, 1, 1)]
             }),
+            Kernel3d::Generic(kernel) => Zip::from(windows).map_assign_into(into, |w| {
+                // TODO Maybe use Zip::any when available
+                // !Zip::from(w).and(kernel).any(|(&w, &k)| !w & k)
+                Zip::from(w).and(kernel).all(|&w, &k| !(!w & k))
+            })
         }
     }
 
@@ -47,34 +59,47 @@ impl Kernel3d {
     /// mask.
     #[rustfmt::skip]
     fn dilate(&self, from: ArrayView3<bool>, into: ArrayViewMut3<bool>) {
+        let windows = from.windows(self.dim());
         match *self {
-            Kernel3d::Full => {
-                // TODO This is incredibly ugly but this is much faster (6x) than the Zip
-                //Zip::from(from.windows((3, 3, 3))).map_assign_into(into, |w| w.iter().any(|&w| w))
-                Zip::from(from.windows((3, 3, 3))).map_assign_into(into, |w| {
-                    w[(0, 0, 0)] || w[(0, 0, 1)] || w[(0, 0, 2)]
-                 || w[(0, 1, 0)] || w[(0, 1, 1)] || w[(0, 1, 2)]
-                 || w[(0, 2, 0)] || w[(0, 2, 1)] || w[(0, 2, 2)]
-                 || w[(1, 0, 0)] || w[(1, 0, 1)] || w[(1, 0, 2)]
-                 || w[(1, 1, 0)] || w[(1, 1, 1)] || w[(1, 1, 2)]
-                 || w[(1, 2, 0)] || w[(1, 2, 1)] || w[(1, 2, 2)]
-                 || w[(2, 0, 0)] || w[(2, 0, 1)] || w[(2, 0, 2)]
-                 || w[(2, 1, 0)] || w[(2, 1, 1)] || w[(2, 1, 2)]
-                 || w[(2, 2, 0)] || w[(2, 2, 1)] || w[(2, 2, 2)]
-                })
-            }
-            Kernel3d::Star => Zip::from(from.windows((3, 3, 3))).map_assign_into(into, |w| {
-                // This ugly condition is equivalent to
-                // *mask = w.iter().zip(&kernel).any(|(w, k)| w & k)
-                // but it's around 5x faster because there's no branch misprediction
-                w[(0, 1, 1)]
-                    || w[(1, 0, 1)]
-                    || w[(1, 1, 0)]
-                    || w[(1, 1, 1)]
-                    || w[(1, 1, 2)]
-                    || w[(1, 2, 1)]
-                    || w[(2, 1, 1)]
+            Kernel3d::Full => Zip::from(windows).map_assign_into(into, |w| {
+                // This is incredibly ugly but this is much faster (6x) than the Zip
+                // |w| w.iter().any(|&w| w))
+                   w[(0, 0, 0)] || w[(0, 0, 1)] || w[(0, 0, 2)]
+                || w[(0, 1, 0)] || w[(0, 1, 1)] || w[(0, 1, 2)]
+                || w[(0, 2, 0)] || w[(0, 2, 1)] || w[(0, 2, 2)]
+                || w[(1, 0, 0)] || w[(1, 0, 1)] || w[(1, 0, 2)]
+                || w[(1, 1, 0)] || w[(1, 1, 1)] || w[(1, 1, 2)]
+                || w[(1, 2, 0)] || w[(1, 2, 1)] || w[(1, 2, 2)]
+                || w[(2, 0, 0)] || w[(2, 0, 1)] || w[(2, 0, 2)]
+                || w[(2, 1, 0)] || w[(2, 1, 1)] || w[(2, 1, 2)]
+                || w[(2, 2, 0)] || w[(2, 2, 1)] || w[(2, 2, 2)]
             }),
+            Kernel3d::Ball => Zip::from(windows).map_assign_into(into, |w| {
+                                   w[(0, 0, 1)]
+                || w[(0, 1, 0)] || w[(0, 1, 1)] || w[(0, 1, 2)]
+                                || w[(0, 2, 1)]
+                || w[(1, 0, 0)] || w[(1, 0, 1)] || w[(1, 0, 2)]
+                || w[(1, 1, 0)] || w[(1, 1, 1)] || w[(1, 1, 2)]
+                || w[(1, 2, 0)] || w[(1, 2, 1)] || w[(1, 2, 2)]
+                                || w[(2, 0, 1)]
+                || w[(2, 1, 0)] || w[(2, 1, 1)] || w[(2, 1, 2)]
+                                || w[(2, 2, 1)]
+            }),
+            Kernel3d::Star => Zip::from(windows).map_assign_into(into, |w| {
+                // This ugly condition is equivalent to
+                // |(w, k)| w & k
+                // but it's around 5x faster because there's no branch misprediction
+                                   w[(0, 1, 1)]
+                                || w[(1, 0, 1)]
+                || w[(1, 1, 0)] || w[(1, 1, 1)] || w[(1, 1, 2)]
+                                || w[(1, 2, 1)]
+                                || w[(2, 1, 1)]
+            }),
+            Kernel3d::Generic(kernel) => Zip::from(windows).map_assign_into(into, |w| {
+                // TODO Use Zip::any when available
+                // Zip::from(w).and(kernel).any(|idx, &w, &k| w & k)
+                w.iter().zip(&kernel).any(|(w, k)| w & k)
+            })
         }
     }
 }
