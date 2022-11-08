@@ -30,22 +30,35 @@ pub use pad::{pad, pad_to, PadMode};
 pub type Mask = Array3<bool>;
 
 /// 3D common kernels. Also called Structuring Element.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Kernel3d<'a> {
     /// Diamond/star kernel (center and sides).
     ///
-    /// Equivalent to `generate_binary_structure(3, 1)`
+    /// Equivalent to `generate_binary_structure(3, 1)`.
     Star,
     /// Ball kernel (center and sides).
     ///
-    /// Equivalent to `generate_binary_structure(3, 2)`
+    /// Equivalent to `generate_binary_structure(3, 2)`.
     Ball,
     /// 3x3x3 cube.
     ///
-    /// Equivalent to `generate_binary_structure(3, 3)`
+    /// Equivalent to `generate_binary_structure(3, 3)`.
     Full,
     /// Generic kernel of any 3D size.
+    ///
+    /// The generic kernels are incredibly slower on all morphological operations.
     Generic(ArrayView3<'a, bool>),
+}
+
+impl<'a> std::fmt::Debug for Kernel3d<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Kernel3d::Star => write!(f, "Star {:?}", self.dim()),
+            Kernel3d::Ball => write!(f, "Ball {:?}", self.dim()),
+            Kernel3d::Full => write!(f, "Full {:?}", self.dim()),
+            Kernel3d::Generic(k) => write!(f, "Generic {:?}", k.dim()),
+        }
+    }
 }
 
 impl<'a> Kernel3d<'a> {
