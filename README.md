@@ -29,7 +29,7 @@ Using with Cargo
 ```toml
 [dependencies]
 ndarray = "0.15"
-ndarray-ndimage = "0.1"
+ndarray-ndimage = "0.2"
 ```
 
 Contributing
