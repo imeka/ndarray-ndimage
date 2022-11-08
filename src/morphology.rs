@@ -38,7 +38,7 @@ impl<'a> Kernel3d<'a> {
             Kernel3d::Star => Zip::from(windows).map_assign_into(into, |w| {
                 // This ugly condition is equivalent to
                 // *mask = !w.iter().zip(&kernel).any(|(w, k)| !w & k)
-                // but it's around 5x faster because there's no branch misprediction
+                // but it's extremely faster because there's no branch misprediction
                                    w[(0, 1, 1)]
                                 && w[(1, 0, 1)]
                 && w[(1, 1, 0)] && w[(1, 1, 1)] && w[(1, 1, 2)]
@@ -46,7 +46,9 @@ impl<'a> Kernel3d<'a> {
                                 && w[(2, 1, 1)]
             }),
             Kernel3d::Generic(kernel) => Zip::from(windows).map_assign_into(into, |w| {
-                !w.iter().zip(&kernel).any(|(w, k)| !w & k)
+                // TODO Maybe use Zip::any when available
+                // !Zip::from(w).and(kernel).any(|(&w, &k)| !w & k)
+                Zip::from(w).and(kernel).all(|&w, &k| !(!w & k))
             })
         }
     }
@@ -94,6 +96,8 @@ impl<'a> Kernel3d<'a> {
                                 || w[(2, 1, 1)]
             }),
             Kernel3d::Generic(kernel) => Zip::from(windows).map_assign_into(into, |w| {
+                // TODO Use Zip::any when available
+                // Zip::from(w).and(kernel).any(|idx, &w, &k| w & k)
                 w.iter().zip(&kernel).any(|(w, k)| w & k)
             })
         }
