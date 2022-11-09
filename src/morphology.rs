@@ -10,7 +10,7 @@ impl<'a> Kernel3d<'a> {
     #[rustfmt::skip]
     fn erode(&self, from: ArrayView3<bool>, into: ArrayViewMut3<bool>) {
         let windows = from.windows(self.dim());
-        match *self {
+        match self {
             Kernel3d::Full => Zip::from(windows).map_assign_into(into, |w| {
                 // This is incredibly ugly but this is much faster (3x) than the Zip
                 // |w| Zip::from(w).all(|&m| m)
@@ -45,7 +45,12 @@ impl<'a> Kernel3d<'a> {
                                 && w[(1, 2, 1)]
                                 && w[(2, 1, 1)]
             }),
-            Kernel3d::Generic(kernel) => Zip::from(windows).map_assign_into(into, |w| {
+            Kernel3d::GenericOwned(kernel) => Zip::from(windows).map_assign_into(into, |w| {
+                // TODO Maybe use Zip::any when available
+                // !Zip::from(w).and(kernel).any(|(&w, &k)| !w & k)
+                Zip::from(w).and(kernel).all(|&w, &k| !(!w & k))
+            }),
+            Kernel3d::GenericView(kernel) => Zip::from(windows).map_assign_into(into, |w| {
                 // TODO Maybe use Zip::any when available
                 // !Zip::from(w).and(kernel).any(|(&w, &k)| !w & k)
                 Zip::from(w).and(kernel).all(|&w, &k| !(!w & k))
@@ -60,7 +65,7 @@ impl<'a> Kernel3d<'a> {
     #[rustfmt::skip]
     fn dilate(&self, from: ArrayView3<bool>, into: ArrayViewMut3<bool>) {
         let windows = from.windows(self.dim());
-        match *self {
+        match self {
             Kernel3d::Full => Zip::from(windows).map_assign_into(into, |w| {
                 // This is incredibly ugly but this is much faster (6x) than the Zip
                 // |w| w.iter().any(|&w| w))
@@ -95,10 +100,15 @@ impl<'a> Kernel3d<'a> {
                                 || w[(1, 2, 1)]
                                 || w[(2, 1, 1)]
             }),
-            Kernel3d::Generic(kernel) => Zip::from(windows).map_assign_into(into, |w| {
+            Kernel3d::GenericOwned(kernel) => Zip::from(windows).map_assign_into(into, |w| {
                 // TODO Use Zip::any when available
                 // Zip::from(w).and(kernel).any(|idx, &w, &k| w & k)
-                w.iter().zip(&kernel).any(|(w, k)| w & k)
+                w.iter().zip(kernel).any(|(w, k)| w & k)
+            }),
+            Kernel3d::GenericView(kernel) => Zip::from(windows).map_assign_into(into, |w| {
+                // TODO Use Zip::any when available
+                // Zip::from(w).and(kernel).any(|idx, &w, &k| w & k)
+                w.iter().zip(kernel).any(|(w, k)| w & k)
             })
         }
     }
@@ -109,7 +119,7 @@ impl<'a> Kernel3d<'a> {
 /// * `mask` - Binary image to be eroded.
 /// * `kernel` - Structuring element used for the erosion.
 /// * `iterations` - The erosion is repeated iterations times.
-pub fn binary_erosion<S>(mask: &ArrayBase<S, Ix3>, kernel: Kernel3d, iterations: usize) -> Mask
+pub fn binary_erosion<S>(mask: &ArrayBase<S, Ix3>, kernel: &Kernel3d, iterations: usize) -> Mask
 where
     S: Data<Elem = bool>,
 {
@@ -145,7 +155,7 @@ where
 /// * `mask` - Binary image to be dilated.
 /// * `kernel` - Structuring element used for the dilation.
 /// * `iterations` - The dilation is repeated iterations times.
-pub fn binary_dilation<S>(mask: &ArrayBase<S, Ix3>, kernel: Kernel3d, iterations: usize) -> Mask
+pub fn binary_dilation<S>(mask: &ArrayBase<S, Ix3>, kernel: &Kernel3d, iterations: usize) -> Mask
 where
     S: Data<Elem = bool>,
 {
@@ -174,7 +184,7 @@ where
 /// * `kernel` - Structuring element used for the opening.
 /// * `iterations` - The erosion step of the opening, then the dilation step are each repeated
 ///   iterations times.
-pub fn binary_opening<S>(mask: &ArrayBase<S, Ix3>, kernel: Kernel3d, iterations: usize) -> Mask
+pub fn binary_opening<S>(mask: &ArrayBase<S, Ix3>, kernel: &Kernel3d, iterations: usize) -> Mask
 where
     S: Data<Elem = bool>,
 {
@@ -191,7 +201,7 @@ where
 /// * `kernel` - Structuring element used for the closing.
 /// * `iterations` - The dilation step of the closing, then the erosion step are each repeated
 ///   iterations times.
-pub fn binary_closing<S>(mask: &ArrayBase<S, Ix3>, kernel: Kernel3d, iterations: usize) -> Mask
+pub fn binary_closing<S>(mask: &ArrayBase<S, Ix3>, kernel: &Kernel3d, iterations: usize) -> Mask
 where
     S: Data<Elem = bool>,
 {

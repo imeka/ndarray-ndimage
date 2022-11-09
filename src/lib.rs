@@ -30,7 +30,7 @@ pub use pad::{pad, pad_to, PadMode};
 pub type Mask = Array3<bool>;
 
 /// 3D common kernels. Also called Structuring Element.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Kernel3d<'a> {
     /// Diamond/star kernel (center and sides).
     ///
@@ -44,19 +44,24 @@ pub enum Kernel3d<'a> {
     ///
     /// Equivalent to `generate_binary_structure(3, 3)`.
     Full,
-    /// Generic kernel of any 3D size.
+    /// Generic kernel (owned data) of any 3D size.
     ///
     /// The generic kernels are incredibly slower on all morphological operations.
-    Generic(ArrayView3<'a, bool>),
+    GenericOwned(Array3<bool>),
+    /// Generic kernel (shared data) of any 3D size.
+    ///
+    /// The generic kernels are incredibly slower on all morphological operations.
+    GenericView(ArrayView3<'a, bool>),
 }
 
 impl<'a> std::fmt::Debug for Kernel3d<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
+        match self {
             Kernel3d::Star => write!(f, "Star {:?}", self.dim()),
             Kernel3d::Ball => write!(f, "Ball {:?}", self.dim()),
             Kernel3d::Full => write!(f, "Full {:?}", self.dim()),
-            Kernel3d::Generic(k) => write!(f, "Generic {:?}", k.dim()),
+            Kernel3d::GenericOwned(k) => write!(f, "Generic (owned) {:?}", k.dim()),
+            Kernel3d::GenericView(k) => write!(f, "Generic (view) {:?}", k.dim()),
         }
     }
 }
@@ -64,15 +69,16 @@ impl<'a> std::fmt::Debug for Kernel3d<'a> {
 impl<'a> Kernel3d<'a> {
     /// Return the kernel dimension.
     pub fn dim(&self) -> (usize, usize, usize) {
-        match *self {
+        match self {
             Kernel3d::Star | Kernel3d::Ball | Kernel3d::Full => (3, 3, 3),
-            Kernel3d::Generic(k) => k.dim(),
+            Kernel3d::GenericOwned(k) => k.dim(),
+            Kernel3d::GenericView(k) => k.dim(),
         }
     }
 
     /// Return the actual 3D array.
     pub fn array(&self) -> Array3<bool> {
-        match *self {
+        match self {
             Kernel3d::Star => arr3(&[
                 [[false, false, false], [false, true, false], [false, false, false]],
                 [[false, true, false], [true, true, true], [false, true, false]],
@@ -84,7 +90,8 @@ impl<'a> Kernel3d<'a> {
                 [[false, true, false], [true, true, true], [false, true, false]],
             ]),
             Kernel3d::Full => Array3::from_elem((3, 3, 3), true),
-            Kernel3d::Generic(k) => k.to_owned(),
+            Kernel3d::GenericOwned(k) => k.clone(),
+            Kernel3d::GenericView(k) => k.to_owned(),
         }
     }
 }
