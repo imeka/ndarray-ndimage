@@ -95,6 +95,12 @@ fn test_binary_erosion_full_kernel() {
     gt[(6, 6, 6)] = false;
     let kernel = Kernel3d::GenericOwned(Array3::from_elem((5, 5, 5), true));
     assert_eq!(gt, binary_erosion(&mask, &kernel, 2));
+
+    let mask = Mask::from_elem((13, 13, 13), true);
+    let mut gt = Mask::from_elem((13, 13, 13), false);
+    gt[(6, 6, 6)] = true;
+    let kernel = Kernel3d::GenericOwned(Array3::from_elem((5, 5, 5), true));
+    assert_eq!(gt, binary_erosion(&mask, &kernel, 3));
 }
 
 #[test] // Results verified with the `binary_dilation` function from SciPy. (v1.7.0)
