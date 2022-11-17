@@ -1,4 +1,4 @@
-use ndarray::s;
+use ndarray::{s, Array3};
 
 use ndarray_ndimage::{
     binary_closing, binary_dilation, binary_erosion, binary_opening, dim_minus, Kernel3d, Mask,
@@ -81,6 +81,20 @@ fn test_binary_erosion_full_kernel() {
 
     assert_eq!(gt, binary_erosion(&mask, &Kernel3d::Full, 1));
     assert_eq!(gt, binary_erosion(&mask, &Kernel3d::GenericOwned(Kernel3d::Full.array()), 1));
+
+    let mut gt = Mask::from_elem((11, 11, 11), false);
+    gt.slice_mut(s![2..-2, 2..-2, 2..-2]).fill(true);
+    gt.slice_mut(s![3..8, 3..8, 3..8]).fill(false);
+    let kernel = Kernel3d::GenericOwned(Array3::from_elem((5, 5, 5), true));
+    assert_eq!(gt, binary_erosion(&mask, &kernel, 1));
+
+    let mut mask = Mask::from_elem((11, 11, 11), true);
+    mask[(10, 10, 10)] = false;
+    let mut gt = Mask::from_elem((11, 11, 11), false);
+    gt.slice_mut(s![4..7, 4..7, 4..7]).fill(true);
+    gt[(6, 6, 6)] = false;
+    let kernel = Kernel3d::GenericOwned(Array3::from_elem((5, 5, 5), true));
+    assert_eq!(gt, binary_erosion(&mask, &kernel, 2));
 }
 
 #[test] // Results verified with the `binary_dilation` function from SciPy. (v1.7.0)
