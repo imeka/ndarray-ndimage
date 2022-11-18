@@ -1,6 +1,6 @@
 use ndarray::{s, ArrayBase, ArrayView3, ArrayViewMut3, Data, Ix3, Zip};
 
-use crate::{array_like, dim_minus, Kernel3d, Mask};
+use crate::{array_like, Kernel3d, Mask};
 
 impl<'a> Kernel3d<'a> {
     /// Erode the mask when at least one of the values doesn't respect the kernel.
@@ -123,27 +123,28 @@ pub fn binary_erosion<S>(mask: &ArrayBase<S, Ix3>, kernel: &Kernel3d, iterations
 where
     S: Data<Elem = bool>,
 {
+    let (w, h, d) = mask.dim();
+    let (r_x, r_y, r_z) = kernel.radius();
+
     // By definition, all borders are set to 0
-    let (width, height, depth) = dim_minus(mask, 1);
     let mut eroded_mask = Mask::from_elem(mask.dim(), false);
-    let zone = s![1..width, 1..height, 1..depth];
+    let zone = s![r_x..w - r_x, r_y..h - r_y, r_z..d - r_z];
     eroded_mask.slice_mut(zone).assign(&mask.slice(zone));
 
     kernel.erode(mask.view(), eroded_mask.slice_mut(zone));
+    if iterations == 1 {
+        return eroded_mask;
+    }
 
-    if iterations > 1 {
-        let mut previous = eroded_mask.clone();
-        for it in 1..iterations {
-            let (width, height, depth) = dim_minus(mask, it - 1);
-            let from = previous.slice(s![it - 1..width, it - 1..height, it - 1..depth]);
-            let (width, height, depth) = dim_minus(mask, it);
-            let zone = s![it..width, it..height, it..depth];
+    let iterations = iterations - 1;
+    let mut previous = eroded_mask.clone();
+    for it in 0..iterations {
+        let from = previous.slice(s![it..w - it, it..h - it, it..d - it]);
+        let zone = s![it + r_x..w - it - r_x, it + r_y..h - it - r_y, it + r_z..d - it - r_z];
+        kernel.erode(from, eroded_mask.slice_mut(zone));
 
-            kernel.erode(from, eroded_mask.slice_mut(zone));
-
-            if it != iterations {
-                previous = eroded_mask.clone();
-            }
+        if it != iterations {
+            previous = eroded_mask.clone();
         }
     }
 
@@ -159,9 +160,10 @@ pub fn binary_dilation<S>(mask: &ArrayBase<S, Ix3>, kernel: &Kernel3d, iteration
 where
     S: Data<Elem = bool>,
 {
-    let (width, height, depth) = mask.dim();
-    let crop = s![1..=width, 1..=height, 1..=depth];
-    let mut new_mask = array_like(mask, (width + 2, height + 2, depth + 2), false);
+    let (w, h, d) = mask.dim();
+    let (r_x, r_y, r_z) = kernel.radius();
+    let crop = s![r_x..w + r_x, r_y..h + r_y, r_z..d + r_z];
+    let mut new_mask = array_like(mask, (w + 2 * r_x, h + 2 * r_y, d + 2 * r_z), false);
     new_mask.slice_mut(crop).assign(mask);
 
     let mut previous = new_mask.clone();

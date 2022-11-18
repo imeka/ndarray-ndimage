@@ -94,6 +94,21 @@ impl<'a> Kernel3d<'a> {
             Kernel3d::GenericView(k) => k.to_owned(),
         }
     }
+
+    /// Return the 3-tuple radius of the kernel.
+    pub fn radius(&self) -> (usize, usize, usize) {
+        match self {
+            Kernel3d::Star | Kernel3d::Ball | Kernel3d::Full => (1, 1, 1),
+            Kernel3d::GenericOwned(kernel) => {
+                let dim = kernel.dim();
+                ((dim.0 - 1) / 2, (dim.1 - 1) / 2, (dim.2 - 1) / 2)
+            }
+            Kernel3d::GenericView(kernel) => {
+                let dim = kernel.dim();
+                ((dim.0 - 1) / 2, (dim.1 - 1) / 2, (dim.2 - 1) / 2)
+            }
+        }
+    }
 }
 
 /// Utilitary function that returns a new *n*-dimensional array of dimension `shape` with the same
