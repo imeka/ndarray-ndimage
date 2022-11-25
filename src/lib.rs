@@ -96,18 +96,9 @@ impl<'a> Kernel3d<'a> {
     }
 
     /// Return the 3-tuple radius of the kernel.
-    pub fn radius(&self) -> (usize, usize, usize) {
-        match self {
-            Kernel3d::Star | Kernel3d::Ball | Kernel3d::Full => (1, 1, 1),
-            Kernel3d::GenericOwned(kernel) => {
-                let dim = kernel.dim();
-                ((dim.0 - 1) / 2, (dim.1 - 1) / 2, (dim.2 - 1) / 2)
-            }
-            Kernel3d::GenericView(kernel) => {
-                let dim = kernel.dim();
-                ((dim.0 - 1) / 2, (dim.1 - 1) / 2, (dim.2 - 1) / 2)
-            }
-        }
+    pub fn radii(&self) -> (usize, usize, usize) {
+        let dim = self.dim();
+        ((dim.0 - 1) / 2, (dim.1 - 1) / 2, (dim.2 - 1) / 2)
     }
 }
 

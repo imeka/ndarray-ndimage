@@ -124,7 +124,7 @@ where
     S: Data<Elem = bool>,
 {
     let (w, h, d) = mask.dim();
-    let (r_x, r_y, r_z) = kernel.radius();
+    let (r_x, r_y, r_z) = kernel.radii();
 
     // By definition, all borders are set to 0
     let mut eroded_mask = Mask::from_elem(mask.dim(), false);
@@ -161,7 +161,7 @@ where
     S: Data<Elem = bool>,
 {
     let (w, h, d) = mask.dim();
-    let (r_x, r_y, r_z) = kernel.radius();
+    let (r_x, r_y, r_z) = kernel.radii();
     let crop = s![r_x..w + r_x, r_y..h + r_y, r_z..d + r_z];
     let mut new_mask = array_like(mask, (w + 2 * r_x, h + 2 * r_y, d + 2 * r_z), false);
     new_mask.slice_mut(crop).assign(mask);
