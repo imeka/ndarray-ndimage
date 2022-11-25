@@ -182,6 +182,10 @@ where
 /// The opening of an input image by a structuring element is the dilation of the erosion of the
 /// image by the structuring element.
 ///
+/// Unlike other libraries, the **border values** of the:
+/// - dilation is always `false`, to avoid dilating the borders
+/// - erosion is always `true`, to avoid *border effects*
+///
 /// * `mask` - Binary image to be opened.
 /// * `kernel` - Structuring element used for the opening.
 /// * `iterations` - The erosion step of the opening, then the dilation step are each repeated
@@ -198,6 +202,10 @@ where
 ///
 /// The closing of an input image by a structuring element is the erosion of the dilation of the
 /// image by the structuring element.
+///
+/// Unlike other libraries, the **border values** of the:
+/// - dilation is always `false`, to avoid dilating the borders
+/// - erosion is always `true`, to avoid *border effects*
 ///
 /// * `mask` - Binary image to be closed.
 /// * `kernel` - Structuring element used for the closing.
