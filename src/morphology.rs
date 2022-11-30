@@ -251,16 +251,16 @@ where
     let mask = mask.as_slice_memory_order().unwrap();
     let out = out.as_slice_memory_order_mut().unwrap();
 
-    for (i, (&m, o)) in mask.iter().zip(out).enumerate() {
+    let mut i = 0isize;
+    for (&m, o) in mask.iter().zip(out) {
         if offsets.center_is_true && !m {
             *o = false;
         } else {
             *o = true;
-            let ii = i as isize;
-            //println!("{:?}  {:?}", offsets.coordinates, offsets.range());
+            //println!("{:?}  {:?}  {}", offsets.coordinates, offsets.range(), i);
             for &offset in offsets.range() {
                 if offset != offsets.ooi {
-                    if !mask[(ii + offset) as usize] {
+                    if !mask[(i + offset) as usize] {
                         *o = false;
                         break;
                     }
@@ -268,12 +268,20 @@ where
             }
         }
 
-        offsets.next();
+        // TODO 'f' order could be made cache-friendly (and faster than SciPy)
+        // We currently iterate on 'x' (axis 2) even in 'f' order, which makes us jump all around
+        // in memory. The goal would be to:
+        // - Reorder the offsets list in `Offsets` so that it works with the usual 'c' code
+        // - Remove `data_backstrides` in `Offsets::new`
+        // - `i += 1` below, remove `inc` in `Offsets::next`
+        i += offsets.next();
     }
 }
 
 struct Offsets {
     dim_m1: Vec<usize>,
+    data_strides: Vec<isize>,
+    data_backstrides: Vec<isize>,
     offsets: Vec<isize>,
     center_is_true: bool,
     ooi: isize, // Out Of Image offset value
@@ -293,8 +301,20 @@ impl Offsets {
         S: Data<Elem = bool>,
     {
         let shape = mask.shape();
-        let strides = mask.strides();
-        let (offsets, n, ooi) = kernel.offsets(shape, strides);
+        let data_strides = mask.strides().to_vec();
+        let data_backstrides = if data_strides[0] > data_strides[1] {
+            // 'c' order
+            vec![0, data_strides[0] - data_strides[1], data_strides[1] - data_strides[2]]
+        } else {
+            // 'f' order
+            vec![
+                0,
+                data_strides[1] * (shape[1] - 1) as isize,
+                data_strides[2] * (shape[2] - 1) as isize,
+            ]
+        };
+
+        let (offsets, n, ooi) = kernel.offsets(shape, &data_strides);
         let radii = kernel.radii();
         let dim_m1: Vec<_> = shape.iter().map(|&len| len - 1).collect();
 
@@ -313,6 +333,8 @@ impl Offsets {
 
         Offsets {
             dim_m1,
+            data_strides,
+            data_backstrides,
             offsets,
             center_is_true: kernel.center_is_true(),
             ooi,
@@ -330,18 +352,22 @@ impl Offsets {
         &self.offsets[self.at..self.at + self.n]
     }
 
-    fn next(&mut self) {
+    fn next(&mut self) -> isize {
+        let mut inc = 0;
         for d in (0..3).rev() {
             if self.coordinates[d] < self.dim_m1[d] {
                 if !self.bounds[d].contains(&self.coordinates[d]) {
                     self.at += self.strides[d];
                 }
                 self.coordinates[d] += 1;
+                inc += self.data_strides[d];
                 break;
             } else {
                 self.coordinates[d] = 0;
                 self.at -= self.backstrides[d];
+                inc -= self.data_backstrides[d];
             }
         }
+        inc
     }
 }
