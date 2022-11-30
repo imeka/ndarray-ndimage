@@ -58,32 +58,82 @@ impl<'a> Kernel3d<'a> {
         }
     }
 
-    /// Builds the kernel indices and offsets.
-    ///
-    /// For example, on a 4x5x6 image with the `Kernel3d::Star`
-    /// - `((0, 0, -1), -1)`
-    /// - `((0, -1, 0), -6)`
-    /// - `((-1, 0, 0), -30)`
-    /// - `((1, 0, 0), 30)`
-    /// - `((0, 1, 0), 6)`
-    /// - `((0, 0, 1), 1)`
-    ///
-    /// The center is ignored for optimization reasons.
-    fn indices_offsets(&self, strides: &[isize]) -> Vec<((isize, isize, isize), isize)> {
-        let rad = self.radii();
-        let rad = (rad.0 as isize, rad.1 as isize, rad.2 as isize);
-
-        let mut i_o = vec![];
-        Zip::indexed(&self.array()).for_each(|idx, &k| {
-            if k {
-                let idx = (idx.0 as isize - rad.0, idx.1 as isize - rad.1, idx.2 as isize - rad.2);
-                let offset = idx.0 * strides[0] + idx.1 * strides[1] + idx.2 * strides[2];
-                if offset != 0 {
-                    i_o.push((idx, offset));
+    /// Builds the kernel offsets.
+    fn offsets(&self, shape: &[usize], strides: &[isize]) -> (Vec<isize>, usize, isize) {
+        //let indices =
+        //    vec![(0, 0, -1), (0, -1, 0), (-1, 0, 0), (0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)];
+        let dim = self.dim();
+        let array = self.array();
+        let radii = self.radii();
+        let mut indices = vec![];
+        for x in 0..dim.2 {
+            for y in 0..dim.1 {
+                for z in 0..dim.0 {
+                    if array[(z, y, x)] {
+                        indices.push((
+                            z as isize - radii[0] as isize,
+                            y as isize - radii[1] as isize,
+                            x as isize - radii[2] as isize,
+                        ))
+                    }
                 }
             }
-        });
-        i_o
+        }
+        //for idx in &indices {
+        //    println!("{:?}", idx);
+        //}
+
+        /*let indices: Vec<_> = self
+        .array()
+        .indexed_iter()
+        .filter_map(|(idx, &b)| {
+            b.then_some((
+                idx.0 as isize - radii[0] as isize,
+                idx.1 as isize - radii[1] as isize,
+                idx.2 as isize - radii[2] as isize,
+            ))
+        })
+        .collect();*/
+
+        let shape = [shape[0] as isize, shape[1] as isize, shape[2] as isize];
+        let ooi_offset = shape.iter().fold(1, |acc, &s| acc * s);
+        let build_pos = |d: usize| {
+            let mut pos = Vec::with_capacity(array.shape()[d]);
+            let radius = radii[d] as isize;
+            pos.extend(0..radius);
+            pos.push(shape[d] / 2);
+            pos.extend(shape[d] - radius..shape[d]);
+            pos
+        };
+        let z_pos = build_pos(2);
+        let y_pos = build_pos(1);
+        let x_pos = build_pos(0);
+
+        let mut offsets = vec![];
+        for &z in &z_pos {
+            for &y in &y_pos {
+                for &x in &x_pos {
+                    for &idx2 in &indices {
+                        let idx = (x + idx2.0, y + idx2.1, z + idx2.2);
+                        let offset = if !(0..shape[0]).contains(&idx.0)
+                            || !(0..shape[1]).contains(&idx.1)
+                            || !(0..shape[2]).contains(&idx.2)
+                        {
+                            // This voxel in the current kernel is out of image
+                            ooi_offset
+                        } else {
+                            // TODO Should we remove the center?
+                            idx2.0 * strides[2] + idx2.1 * strides[1] + idx2.2 * strides[0]
+                        };
+                        offsets.push(offset)
+                    }
+                }
+            }
+        }
+        //for chunk in offsets.chunks(indices.len()) {
+        //    println!("{:?}", chunk);
+        //}
+        (offsets, indices.len(), ooi_offset)
     }
 
     fn center_is_true(&self) -> bool {
@@ -109,17 +159,13 @@ where
     mask.as_slice_memory_order()
         .expect("Morphological operations can only be called on arrays with contiguous memory.");
 
-    let strides = mask.strides();
-    let i_o = kernel.indices_offsets(strides);
-    let center_is_true = kernel.center_is_true();
-    let is_fortran = strides[0] < strides[2];
-
     let mut eroded = mask.to_owned();
-    erode(mask, &mut eroded, &i_o, center_is_true, is_fortran);
+    let mut offsets = Offsets::new(mask, kernel);
+    erode(mask, &mut eroded, &mut offsets);
     if iterations > 1 {
         let mut buffer = eroded.clone();
         for it in 1..iterations {
-            erode(&buffer, &mut eroded, &i_o, center_is_true, is_fortran);
+            erode(&buffer, &mut eroded, &mut offsets);
             if it != iterations - 1 {
                 buffer = eroded.clone();
             }
@@ -138,9 +184,10 @@ where
     S: Data<Elem = bool>,
 {
     let (w, h, d) = mask.dim();
-    let (r_x, r_y, r_z) = kernel.radii();
-    let crop = s![r_x..w + r_x, r_y..h + r_y, r_z..d + r_z];
-    let mut new_mask = array_like(mask, (w + 2 * r_x, h + 2 * r_y, d + 2 * r_z), false);
+    let radii = kernel.radii();
+    let crop = s![radii[0]..w + radii[0], radii[1]..h + radii[1], radii[2]..d + radii[2]];
+    let mut new_mask =
+        array_like(mask, (w + 2 * radii[0], h + 2 * radii[1], d + 2 * radii[2]), false);
     new_mask.slice_mut(crop).assign(mask);
 
     let mut previous = new_mask.clone();
@@ -196,39 +243,23 @@ where
     binary_erosion(&dilated, kernel, iterations)
 }
 
-fn erode<S, SMut>(
-    mask: &ArrayBase<S, Ix3>,
-    out: &mut ArrayBase<SMut, Ix3>,
-    i_o: &[((isize, isize, isize), isize)],
-    center_is_true: bool,
-    is_fortran: bool,
-) where
+fn erode<S, SMut>(mask: &ArrayBase<S, Ix3>, out: &mut ArrayBase<SMut, Ix3>, offsets: &mut Offsets)
+where
     S: Data<Elem = bool>,
     SMut: DataMut<Elem = bool>,
 {
-    let dim = (mask.dim().0 as isize, mask.dim().1 as isize, mask.dim().2 as isize);
     let mask = mask.as_slice_memory_order().unwrap();
     let out = out.as_slice_memory_order_mut().unwrap();
 
-    let mut x = 0;
-    let mut y = 0;
-    let mut z = 0;
     for (i, (&m, o)) in mask.iter().zip(out).enumerate() {
-        if center_is_true && !m {
+        if offsets.center_is_true && !m {
             *o = false;
         } else {
             *o = true;
             let ii = i as isize;
-            for &(idx, offset) in i_o {
-                // TODO Those `contains` make us slower than ScilPy. Their algo builds a list of
-                // offsets (much longer than our `i_o`) and they are able to always have the right
-                // offsets (see `NI_FILTER_NEXT2`). They have a single condition here instead of 3*2
-                // conditions. The complexity is moved after this loop, which is perfect for bigger
-                // kernels.
-                if (0..dim.2).contains(&(x + idx.2))
-                    && (0..dim.1).contains(&(y + idx.1))
-                    && (0..dim.0).contains(&(z + idx.0))
-                {
+            //println!("{:?}  {:?}", offsets.coordinates, offsets.range());
+            for &offset in offsets.range() {
+                if offset != offsets.ooi {
                     if !mask[(ii + offset) as usize] {
                         *o = false;
                         break;
@@ -237,26 +268,71 @@ fn erode<S, SMut>(
             }
         }
 
-        // Calculate the next index in `mask`
-        if is_fortran {
-            z = z + 1;
-            if z == dim.0 {
-                z = 0;
-                y = y + 1;
-                if y == dim.1 {
-                    y = 0;
-                    x = x + 1;
+        offsets.next();
+    }
+}
+
+struct Offsets {
+    dim_m1: Vec<usize>,
+    offsets: Vec<isize>,
+    center_is_true: bool,
+    ooi: isize, // Out Of Image offset value
+
+    strides: Vec<usize>,
+    backstrides: Vec<usize>,
+    bounds: Vec<std::ops::Range<usize>>,
+    n: usize,
+
+    coordinates: Vec<usize>,
+    at: usize,
+}
+
+impl Offsets {
+    fn new<S>(mask: &ArrayBase<S, Ix3>, kernel: &Kernel3d) -> Offsets
+    where
+        S: Data<Elem = bool>,
+    {
+        let shape = mask.shape();
+        let strides = mask.strides();
+        let (offsets, n, ooi) = kernel.offsets(shape, strides);
+        let radii = kernel.radii();
+        let dim_m1: Vec<_> = shape.iter().map(|&len| len - 1).collect();
+
+        let array = kernel.array();
+        let strides: Vec<_> = array.strides().iter().map(|&s| s as usize * n).collect();
+        let backstrides = strides.iter().zip(array.shape()).map(|(&s, &l)| (l - 1) * s).collect();
+        let bounds = (0..mask.ndim()).map(|d| radii[d]..dim_m1[d] - radii[d]).collect();
+
+        Offsets {
+            dim_m1,
+            offsets,
+            center_is_true: kernel.center_is_true(),
+            ooi,
+            strides,
+            backstrides,
+            bounds,
+            n,
+            coordinates: vec![0; mask.ndim()],
+            at: 0,
+        }
+    }
+
+    /// Return all offsets defined at the current positon
+    fn range(&self) -> &[isize] {
+        &self.offsets[self.at..self.at + self.n]
+    }
+
+    fn next(&mut self) {
+        for d in (0..3).rev() {
+            if self.coordinates[d] < self.dim_m1[d] {
+                if !self.bounds[d].contains(&self.coordinates[d]) {
+                    self.at += self.strides[d];
                 }
-            }
-        } else {
-            x = x + 1;
-            if x == dim.2 {
-                x = 0;
-                y = y + 1;
-                if y == dim.1 {
-                    y = 0;
-                    z = z + 1;
-                }
+                self.coordinates[d] += 1;
+                break;
+            } else {
+                self.coordinates[d] = 0;
+                self.at -= self.backstrides[d];
             }
         }
     }

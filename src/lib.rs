@@ -96,9 +96,9 @@ impl<'a> Kernel3d<'a> {
     }
 
     /// Return the 3-tuple radius of the kernel.
-    pub fn radii(&self) -> (usize, usize, usize) {
+    pub fn radii(&self) -> Vec<usize> {
         let dim = self.dim();
-        ((dim.0 - 1) / 2, (dim.1 - 1) / 2, (dim.2 - 1) / 2)
+        vec![(dim.0 - 1) / 2, (dim.1 - 1) / 2, (dim.2 - 1) / 2]
     }
 }
 
