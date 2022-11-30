@@ -299,9 +299,17 @@ impl Offsets {
         let dim_m1: Vec<_> = shape.iter().map(|&len| len - 1).collect();
 
         let array = kernel.array();
-        let strides: Vec<_> = array.strides().iter().map(|&s| s as usize * n).collect();
+        let mut strides = vec![0; mask.ndim()];
+        strides[mask.ndim() - 1] = n;
+        for d in (0..mask.ndim() - 1).rev() {
+            strides[d] = strides[d + 1] * array.shape()[d];
+        }
         let backstrides = strides.iter().zip(array.shape()).map(|(&s, &l)| (l - 1) * s).collect();
         let bounds = (0..mask.ndim()).map(|d| radii[d]..dim_m1[d] - radii[d]).collect();
+
+        //println!("Strides: {:?}", strides);
+        //println!("Backstrides: {:?}", backstrides);
+        //println!("Bounds: {:?}", bounds);
 
         Offsets {
             dim_m1,
