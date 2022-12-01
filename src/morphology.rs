@@ -1,4 +1,4 @@
-use ndarray::{ArrayBase, ArrayView3, Data, DataMut, Ix3};
+use ndarray::{ArrayBase, ArrayView3, ArrayViewMut3, Data, Ix3};
 
 use crate::Mask;
 
@@ -21,11 +21,11 @@ where
 
     let mut eroded = mask.to_owned();
     let mut offsets = Offsets::new(mask, kernel.view());
-    dilate_or_erode(mask, &mut eroded, &mut offsets, true, true, false);
+    erode(mask.view(), &mut eroded.view_mut(), &mut offsets);
     if iterations > 1 {
         let mut buffer = eroded.clone();
         for it in 1..iterations {
-            dilate_or_erode(&buffer, &mut eroded, &mut offsets, true, true, false);
+            erode(buffer.view(), &mut eroded.view_mut(), &mut offsets);
             if it != iterations - 1 {
                 buffer = eroded.clone();
             }
@@ -53,11 +53,11 @@ where
 
     let mut dilated = mask.to_owned();
     let mut offsets = Offsets::new(mask, kernel.view());
-    dilate_or_erode(mask, &mut dilated, &mut offsets, true, false, true);
+    dilate(mask.view(), &mut dilated.view_mut(), &mut offsets);
     if iterations > 1 {
         let mut buffer = dilated.clone();
         for it in 1..iterations {
-            dilate_or_erode(&buffer, &mut dilated, &mut offsets, true, false, true);
+            dilate(buffer.view(), &mut dilated.view_mut(), &mut offsets);
             if it != iterations - 1 {
                 buffer = dilated.clone();
             }
@@ -118,37 +118,20 @@ where
     binary_erosion(&dilated, kernel, iterations)
 }
 
-fn dilate_or_erode<S, SMut>(
-    mask: &ArrayBase<S, Ix3>,
-    out: &mut ArrayBase<SMut, Ix3>,
-    offsets: &mut Offsets,
-    border_value: bool,
-    true_: bool,
-    false_: bool,
-) where
-    S: Data<Elem = bool>,
-    SMut: DataMut<Elem = bool>,
-{
+fn erode(mask: ArrayView3<bool>, out: &mut ArrayViewMut3<bool>, offsets: &mut Offsets) {
     let mask = mask.as_slice_memory_order().unwrap();
     let out = out.as_slice_memory_order_mut().unwrap();
 
     let mut i = 0;
     for (&m, o) in mask.iter().zip(out) {
-        //println!("{:?}  {:?}  {}", offsets.coordinates, offsets.range(), i);
-        if offsets.center_is_true && m == false_ {
-            *o = false_;
+        if offsets.center_is_true && !m {
+            *o = false;
         } else {
-            *o = true_;
+            *o = true;
             for &offset in offsets.range() {
-                if offset == offsets.ooi {
-                    if !border_value {
-                        *o = false_;
-                        break;
-                    }
-                } else {
-                    let t = if mask[(i + offset) as usize] { true_ } else { false_ };
-                    if !t {
-                        *o = false_;
+                if offset != offsets.ooi {
+                    if !mask[(i + offset) as usize] {
+                        *o = false;
                         break;
                     }
                 }
@@ -161,6 +144,31 @@ fn dilate_or_erode<S, SMut>(
         // - Reorder the offsets list in `Offsets` so that it works with the usual 'c' code
         // - Remove `data_backstrides` in `Offsets::new`
         // - `i += 1` below, remove `inc` in `Offsets::next`
+        i += offsets.next();
+    }
+}
+
+// Even if `erode` and `dilate` could share the same code (as SciPy does), it produces much slower
+// code in practice.
+fn dilate(mask: ArrayView3<bool>, out: &mut ArrayViewMut3<bool>, offsets: &mut Offsets) {
+    let mask = mask.as_slice_memory_order().unwrap();
+    let out = out.as_slice_memory_order_mut().unwrap();
+
+    let mut i = 0;
+    for (&m, o) in mask.iter().zip(out) {
+        if offsets.center_is_true && m {
+            *o = true;
+        } else {
+            *o = false;
+            for &offset in offsets.range() {
+                if offset != offsets.ooi {
+                    if mask[(i + offset) as usize] {
+                        *o = true;
+                        break;
+                    }
+                }
+            }
+        }
         i += offsets.next();
     }
 }
