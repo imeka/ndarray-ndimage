@@ -1,67 +1,10 @@
-use ndarray::{s, ArrayBase, ArrayView3, ArrayViewMut3, Data, DataMut, Ix3, Zip};
+use ndarray::{ArrayBase, Data, DataMut, Ix3};
 
-use crate::{array_like, Kernel3d, Mask};
+use crate::{Kernel3d, Mask};
 
 impl<'a> Kernel3d<'a> {
-    /// Dilate the mask when at least one of the values respect the kernel:
-    ///
-    /// A dilation is defined as `any(w & k)`. Thus, an empty kernel will always produce an empty
-    /// mask.
-    #[rustfmt::skip]
-    fn dilate(&self, from: ArrayView3<bool>, into: ArrayViewMut3<bool>) {
-        let windows = from.windows(self.dim());
-        match self {
-            Kernel3d::Full => Zip::from(windows).map_assign_into(into, |w| {
-                // This is incredibly ugly but this is much faster (6x) than the Zip
-                // |w| w.iter().any(|&w| w))
-                   w[(0, 0, 0)] || w[(0, 0, 1)] || w[(0, 0, 2)]
-                || w[(0, 1, 0)] || w[(0, 1, 1)] || w[(0, 1, 2)]
-                || w[(0, 2, 0)] || w[(0, 2, 1)] || w[(0, 2, 2)]
-                || w[(1, 0, 0)] || w[(1, 0, 1)] || w[(1, 0, 2)]
-                || w[(1, 1, 0)] || w[(1, 1, 1)] || w[(1, 1, 2)]
-                || w[(1, 2, 0)] || w[(1, 2, 1)] || w[(1, 2, 2)]
-                || w[(2, 0, 0)] || w[(2, 0, 1)] || w[(2, 0, 2)]
-                || w[(2, 1, 0)] || w[(2, 1, 1)] || w[(2, 1, 2)]
-                || w[(2, 2, 0)] || w[(2, 2, 1)] || w[(2, 2, 2)]
-            }),
-            Kernel3d::Ball => Zip::from(windows).map_assign_into(into, |w| {
-                                   w[(0, 0, 1)]
-                || w[(0, 1, 0)] || w[(0, 1, 1)] || w[(0, 1, 2)]
-                                || w[(0, 2, 1)]
-                || w[(1, 0, 0)] || w[(1, 0, 1)] || w[(1, 0, 2)]
-                || w[(1, 1, 0)] || w[(1, 1, 1)] || w[(1, 1, 2)]
-                || w[(1, 2, 0)] || w[(1, 2, 1)] || w[(1, 2, 2)]
-                                || w[(2, 0, 1)]
-                || w[(2, 1, 0)] || w[(2, 1, 1)] || w[(2, 1, 2)]
-                                || w[(2, 2, 1)]
-            }),
-            Kernel3d::Star => Zip::from(windows).map_assign_into(into, |w| {
-                // This ugly condition is equivalent to
-                // |(w, k)| w & k
-                // but it's around 5x faster because there's no branch misprediction
-                                   w[(0, 1, 1)]
-                                || w[(1, 0, 1)]
-                || w[(1, 1, 0)] || w[(1, 1, 1)] || w[(1, 1, 2)]
-                                || w[(1, 2, 1)]
-                                || w[(2, 1, 1)]
-            }),
-            Kernel3d::GenericOwned(kernel) => Zip::from(windows).map_assign_into(into, |w| {
-                // TODO Use Zip::any when available
-                // Zip::from(w).and(kernel).any(|idx, &w, &k| w & k)
-                w.iter().zip(kernel).any(|(w, k)| w & k)
-            }),
-            Kernel3d::GenericView(kernel) => Zip::from(windows).map_assign_into(into, |w| {
-                // TODO Use Zip::any when available
-                // Zip::from(w).and(kernel).any(|idx, &w, &k| w & k)
-                w.iter().zip(kernel).any(|(w, k)| w & k)
-            })
-        }
-    }
-
     /// Builds the kernel offsets.
     fn offsets(&self, shape: &[usize], strides: &[isize]) -> (Vec<isize>, usize, isize) {
-        //let indices =
-        //    vec![(0, 0, -1), (0, -1, 0), (-1, 0, 0), (0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)];
         let dim = self.dim();
         let array = self.array();
         let radii = self.radii();
@@ -161,11 +104,11 @@ where
 
     let mut eroded = mask.to_owned();
     let mut offsets = Offsets::new(mask, kernel);
-    erode(mask, &mut eroded, &mut offsets);
+    dilate_or_erode(mask, &mut eroded, &mut offsets, true, true, false);
     if iterations > 1 {
         let mut buffer = eroded.clone();
         for it in 1..iterations {
-            erode(&buffer, &mut eroded, &mut offsets);
+            dilate_or_erode(&buffer, &mut eroded, &mut offsets, true, true, false);
             if it != iterations - 1 {
                 buffer = eroded.clone();
             }
@@ -183,22 +126,22 @@ pub fn binary_dilation<S>(mask: &ArrayBase<S, Ix3>, kernel: &Kernel3d, iteration
 where
     S: Data<Elem = bool>,
 {
-    let (w, h, d) = mask.dim();
-    let radii = kernel.radii();
-    let crop = s![radii[0]..w + radii[0], radii[1]..h + radii[1], radii[2]..d + radii[2]];
-    let mut new_mask =
-        array_like(mask, (w + 2 * radii[0], h + 2 * radii[1], d + 2 * radii[2]), false);
-    new_mask.slice_mut(crop).assign(mask);
+    mask.as_slice_memory_order()
+        .expect("Morphological operations can only be called on arrays with contiguous memory.");
 
-    let mut previous = new_mask.clone();
-    kernel.dilate(previous.view(), new_mask.slice_mut(crop));
-
-    for _ in 1..iterations {
-        previous = new_mask.clone();
-        kernel.dilate(previous.view(), new_mask.slice_mut(crop));
+    let mut dilated = mask.to_owned();
+    let mut offsets = Offsets::new(mask, kernel);
+    dilate_or_erode(mask, &mut dilated, &mut offsets, true, false, true);
+    if iterations > 1 {
+        let mut buffer = dilated.clone();
+        for it in 1..iterations {
+            dilate_or_erode(&buffer, &mut dilated, &mut offsets, true, false, true);
+            if it != iterations - 1 {
+                buffer = dilated.clone();
+            }
+        }
     }
-
-    new_mask.slice(crop).to_owned()
+    dilated
 }
 
 /// Binary opening of a 3D binary image.
@@ -243,25 +186,37 @@ where
     binary_erosion(&dilated, kernel, iterations)
 }
 
-fn erode<S, SMut>(mask: &ArrayBase<S, Ix3>, out: &mut ArrayBase<SMut, Ix3>, offsets: &mut Offsets)
-where
+fn dilate_or_erode<S, SMut>(
+    mask: &ArrayBase<S, Ix3>,
+    out: &mut ArrayBase<SMut, Ix3>,
+    offsets: &mut Offsets,
+    border_value: bool,
+    true_: bool,
+    false_: bool,
+) where
     S: Data<Elem = bool>,
     SMut: DataMut<Elem = bool>,
 {
     let mask = mask.as_slice_memory_order().unwrap();
     let out = out.as_slice_memory_order_mut().unwrap();
 
-    let mut i = 0isize;
+    let mut i = 0;
     for (&m, o) in mask.iter().zip(out) {
-        if offsets.center_is_true && !m {
-            *o = false;
+        //println!("{:?}  {:?}  {}", offsets.coordinates, offsets.range(), i);
+        if offsets.center_is_true && m == false_ {
+            *o = false_;
         } else {
-            *o = true;
-            //println!("{:?}  {:?}  {}", offsets.coordinates, offsets.range(), i);
+            *o = true_;
             for &offset in offsets.range() {
-                if offset != offsets.ooi {
-                    if !mask[(i + offset) as usize] {
-                        *o = false;
+                if offset == offsets.ooi {
+                    if !border_value {
+                        *o = false_;
+                        break;
+                    }
+                } else {
+                    let t = if mask[(i + offset) as usize] { true_ } else { false_ };
+                    if !t {
+                        *o = false_;
                         break;
                     }
                 }
