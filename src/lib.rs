@@ -3,7 +3,7 @@
 //! The `ndarray-image` crate provides multidimensional image processing for `ArrayBase`,
 //! the *n*-dimensional array data structure provided by [`ndarray`].
 
-use ndarray::{arr3, Array, Array3, ArrayBase, ArrayView3, Data, Dimension, Ix3, ShapeBuilder};
+use ndarray::{arr3, Array, Array3, ArrayBase, Data, Dimension, Ix3, ShapeBuilder};
 
 mod filters;
 mod interpolation;
@@ -30,54 +30,25 @@ pub use pad::{pad, pad_to, PadMode};
 pub type Mask = Array3<bool>;
 
 /// 3D common kernels. Also called Structuring Element.
-#[derive(Clone, PartialEq)]
-pub enum Kernel3d<'a> {
+#[derive(Clone, Debug, PartialEq)]
+pub enum Kernel3d {
     /// Diamond/star kernel (center and sides).
     ///
-    /// Equivalent to `generate_binary_structure(3, 1)`.
+    /// Equivalent to SciPy `generate_binary_structure(3, 1)`.
     Star,
     /// Ball kernel (center and sides).
     ///
-    /// Equivalent to `generate_binary_structure(3, 2)`.
+    /// Equivalent to SciPy `generate_binary_structure(3, 2)`.
     Ball,
     /// 3x3x3 cube.
     ///
-    /// Equivalent to `generate_binary_structure(3, 3)`.
+    /// Equivalent to SciPy `generate_binary_structure(3, 3)`.
     Full,
-    /// Generic kernel (owned data) of any 3D size.
-    ///
-    /// The generic kernels are incredibly slower on all morphological operations.
-    GenericOwned(Array3<bool>),
-    /// Generic kernel (shared data) of any 3D size.
-    ///
-    /// The generic kernels are incredibly slower on all morphological operations.
-    GenericView(ArrayView3<'a, bool>),
 }
 
-impl<'a> std::fmt::Debug for Kernel3d<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Kernel3d::Star => write!(f, "Star {:?}", self.dim()),
-            Kernel3d::Ball => write!(f, "Ball {:?}", self.dim()),
-            Kernel3d::Full => write!(f, "Full {:?}", self.dim()),
-            Kernel3d::GenericOwned(k) => write!(f, "Generic (owned) {:?}", k.dim()),
-            Kernel3d::GenericView(k) => write!(f, "Generic (view) {:?}", k.dim()),
-        }
-    }
-}
-
-impl<'a> Kernel3d<'a> {
-    /// Return the kernel dimension.
-    pub fn dim(&self) -> (usize, usize, usize) {
-        match self {
-            Kernel3d::Star | Kernel3d::Ball | Kernel3d::Full => (3, 3, 3),
-            Kernel3d::GenericOwned(k) => k.dim(),
-            Kernel3d::GenericView(k) => k.dim(),
-        }
-    }
-
-    /// Return the actual 3D array.
-    pub fn array(&self) -> Array3<bool> {
+impl Kernel3d {
+    /// Generate a binary 3D kernel.
+    pub fn generate(&self) -> Array3<bool> {
         match self {
             Kernel3d::Star => arr3(&[
                 [[false, false, false], [false, true, false], [false, false, false]],
@@ -90,15 +61,7 @@ impl<'a> Kernel3d<'a> {
                 [[false, true, false], [true, true, true], [false, true, false]],
             ]),
             Kernel3d::Full => Array3::from_elem((3, 3, 3), true),
-            Kernel3d::GenericOwned(k) => k.clone(),
-            Kernel3d::GenericView(k) => k.to_owned(),
         }
-    }
-
-    /// Return the 3-tuple radius of the kernel.
-    pub fn radii(&self) -> Vec<usize> {
-        let dim = self.dim();
-        vec![(dim.0 - 1) / 2, (dim.1 - 1) / 2, (dim.2 - 1) / 2]
     }
 }
 
