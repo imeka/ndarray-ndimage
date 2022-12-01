@@ -6,7 +6,6 @@ pub struct Offsets {
     mask_backstrides: Vec<isize>,
     offsets: Vec<isize>,
     center_is_true: bool,
-    ooi: isize, // Out Of Image offset value
 
     strides: Vec<usize>,
     backstrides: Vec<usize>,
@@ -36,7 +35,7 @@ impl Offsets {
             ]
         };
 
-        let (offsets, n, ooi) = build_offsets(mask_shape, &mask_strides, kernel.view());
+        let (offsets, n) = build_offsets(mask_shape, &mask_strides, kernel.view());
         let dim_m1: Vec<_> = mask_shape.iter().map(|&len| len - 1).collect();
 
         let kernel_shape = kernel.shape();
@@ -65,7 +64,6 @@ impl Offsets {
             mask_backstrides,
             offsets,
             center_is_true,
-            ooi,
             strides,
             backstrides,
             bounds,
@@ -102,10 +100,6 @@ impl Offsets {
     pub fn center_is_true(&self) -> bool {
         self.center_is_true
     }
-
-    pub fn ooi(&self) -> isize {
-        self.ooi
-    }
 }
 
 /// Builds the kernel offsets.
@@ -113,7 +107,7 @@ fn build_offsets(
     shape: &[usize],
     strides: &[isize],
     kernel: ArrayView3<bool>,
-) -> (Vec<isize>, usize, isize) {
+) -> (Vec<isize>, usize) {
     let radii: Vec<_> = kernel.shape().iter().map(|&len| (len - 1) / 2).collect();
     let indices = build_indices(kernel, &radii);
 
@@ -152,10 +146,16 @@ fn build_offsets(
             }
         }
     }
-    //for chunk in offsets.chunks(indices.len()) {
-    //    println!("{:?}", chunk);
-    //}
-    (offsets, indices.len(), ooi_offset)
+
+    // Sort all chunks so that
+    // - Enhance cache locality
+    // - The `ooi_offset` are all glued at the end, so we can `break` when we see one
+    for chunk in offsets.chunks_mut(indices.len()) {
+        chunk.sort();
+        //println!("{:?}", chunk);
+    }
+
+    (offsets, indices.len())
 }
 
 fn build_indices(kernel: ArrayView3<bool>, radii: &[usize]) -> Vec<(isize, isize, isize)> {

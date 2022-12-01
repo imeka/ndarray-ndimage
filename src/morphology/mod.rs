@@ -125,7 +125,7 @@ fn erode(mask: ArrayView3<bool>, out: &mut ArrayViewMut3<bool>, offsets: &mut Of
     let mask = mask.as_slice_memory_order().unwrap();
     let out = out.as_slice_memory_order_mut().unwrap();
     let center_is_true = offsets.center_is_true();
-    let ooi = offsets.ooi();
+    let ooi_offset = mask.len() as isize;
 
     let mut i = 0;
     for (&m, o) in mask.iter().zip(out) {
@@ -135,7 +135,10 @@ fn erode(mask: ArrayView3<bool>, out: &mut ArrayViewMut3<bool>, offsets: &mut Of
         } else {
             *o = true;
             for &offset in offsets.range() {
-                if offset != ooi {
+                if offset == ooi_offset {
+                    // The offsets are sorted so we can quit as soon as we see the `ooi_offset`
+                    break;
+                } else {
                     if !mask[(i + offset) as usize] {
                         *o = false;
                         break;
@@ -155,12 +158,12 @@ fn erode(mask: ArrayView3<bool>, out: &mut ArrayViewMut3<bool>, offsets: &mut Of
 }
 
 // Even if `erode` and `dilate` could share the same code (as SciPy does), it produces much slower
-// code in practice.
+// code in practice. See previous function for some documentation.
 fn dilate(mask: ArrayView3<bool>, out: &mut ArrayViewMut3<bool>, offsets: &mut Offsets) {
     let mask = mask.as_slice_memory_order().unwrap();
     let out = out.as_slice_memory_order_mut().unwrap();
     let center_is_true = offsets.center_is_true();
-    let ooi = offsets.ooi();
+    let ooi_offset = mask.len() as isize;
 
     let mut i = 0;
     for (&m, o) in mask.iter().zip(out) {
@@ -169,7 +172,9 @@ fn dilate(mask: ArrayView3<bool>, out: &mut ArrayViewMut3<bool>, offsets: &mut O
         } else {
             *o = false;
             for &offset in offsets.range() {
-                if offset != ooi {
+                if offset == ooi_offset {
+                    break;
+                } else {
                     if mask[(i + offset) as usize] {
                         *o = true;
                         break;
