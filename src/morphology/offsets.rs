@@ -26,6 +26,9 @@ impl Offsets {
         let dim_m1: Vec<_> = mask_shape.iter().map(|&len| len - 1).collect();
 
         let kernel_shape = kernel.shape();
+        let center_is_true =
+            kernel[(kernel_shape[0] / 2, kernel_shape[1] / 2, kernel_shape[2] / 2)];
+
         let mut strides = vec![0; mask.ndim()];
         strides[mask.ndim() - 1] = n;
         for d in (0..mask.ndim() - 1).rev() {
@@ -42,7 +45,7 @@ impl Offsets {
         Offsets {
             dim_m1,
             offsets,
-            center_is_true: kernel.as_slice_memory_order().unwrap()[kernel.len() / 2],
+            center_is_true,
             axes: if mask_strides[0] > mask_strides[2] { [2, 1, 0] } else { [0, 1, 2] },
             strides,
             backstrides,
