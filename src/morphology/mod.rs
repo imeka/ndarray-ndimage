@@ -129,12 +129,12 @@ fn erode(mask: ArrayView3<bool>, out: &mut ArrayViewMut3<bool>, offsets: &mut Of
 
     let mut i = 0;
     for (&m, o) in mask.iter().zip(out) {
-        //println!("{:?}  {:?}  {}", offsets.coordinates, offsets.range(), i);
         if center_is_true && !m {
             *o = false;
         } else {
             *o = true;
             for &offset in offsets.range() {
+                // Is the offset the special value "Out Of Image"?
                 if offset == ooi_offset {
                     // The offsets are sorted so we can quit as soon as we see the `ooi_offset`
                     break;

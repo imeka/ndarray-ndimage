@@ -114,7 +114,6 @@ fn build_offsets(
                         // This voxel in the current kernel is out of image
                         ooi_offset
                     } else {
-                        // TODO Should we remove the center?
                         idx2.0 * strides[2] + idx2.1 * strides[1] + idx2.2 * strides[0]
                     };
                     offsets.push(offset)
@@ -123,18 +122,18 @@ fn build_offsets(
         }
     }
 
-    // Sort all chunks so that
-    // - Enhance cache locality
+    // Sort all chunks:
+    // - This will enhance cache locality
     // - The `ooi_offset` are all glued at the end, so we can `break` when we see one
     for chunk in offsets.chunks_mut(indices.len()) {
         chunk.sort();
-        //println!("{:?}", chunk);
     }
 
     (offsets, indices.len())
 }
 
 fn build_indices(kernel: ArrayView3<bool>, radii: &[usize]) -> Vec<(isize, isize, isize)> {
+    // TODO This will work only on symmetric kernel
     let indices_: Vec<_> = kernel
         .indexed_iter()
         .filter_map(|(idx, &b)| {
@@ -147,7 +146,14 @@ fn build_indices(kernel: ArrayView3<bool>, radii: &[usize]) -> Vec<(isize, isize
         .collect();
     let mut indices = Vec::with_capacity(indices_.len());
     indices.extend(indices_[..indices_.len() / 2].iter().rev());
-    indices.push(indices_[indices_.len() / 2]);
+
+    // Do not add index (0, 0, 0) because it represents offset 0 which it's useless for both
+    // `dilate` and `erode`, thanks to the `center_is_true` condition.
+    let center = indices_[indices_.len() / 2];
+    if center != (0, 0, 0) {
+        indices.push(center);
+    }
+
     indices.extend(indices_[indices_.len() / 2 + 1..].iter().rev());
     indices
 }
