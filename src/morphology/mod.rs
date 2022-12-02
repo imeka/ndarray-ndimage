@@ -146,14 +146,8 @@ fn erode(mask: ArrayView3<bool>, out: &mut ArrayViewMut3<bool>, offsets: &mut Of
                 }
             }
         }
-
-        // TODO 'f' order could be made cache-friendly (and faster than SciPy)
-        // We currently iterate on 'x' (axis 2) even in 'f' order, which makes us jump all around
-        // in memory. The goal would be to:
-        // - Reorder the offsets list in `Offsets` so that it works with the usual 'c' code
-        // - Remove `data_backstrides` in `Offsets::new`
-        // - `i += 1` below, remove `inc` in `Offsets::next`
-        i += offsets.next();
+        offsets.next();
+        i += 1;
     }
 }
 
@@ -182,6 +176,7 @@ fn dilate(mask: ArrayView3<bool>, out: &mut ArrayViewMut3<bool>, offsets: &mut O
                 }
             }
         }
-        i += offsets.next();
+        offsets.next();
+        i += 1;
     }
 }

@@ -2,17 +2,16 @@ use ndarray::{ArrayBase, ArrayView3, Data, Ix3};
 
 pub struct Offsets {
     dim_m1: Vec<usize>,
-    mask_strides: Vec<isize>,
-    mask_backstrides: Vec<isize>,
     offsets: Vec<isize>,
     center_is_true: bool,
+    axes: [usize; 3],
 
     strides: Vec<usize>,
     backstrides: Vec<usize>,
     bounds: Vec<std::ops::Range<usize>>,
     n: usize,
 
-    coordinates: Vec<usize>,
+    pub coordinates: Vec<usize>,
     at: usize,
 }
 
@@ -23,18 +22,6 @@ impl Offsets {
     {
         let mask_shape = mask.shape();
         let mask_strides = mask.strides().to_vec();
-        let mask_backstrides = if mask_strides[0] > mask_strides[1] {
-            // 'c' order
-            vec![0, mask_strides[0] - mask_strides[1], mask_strides[1] - mask_strides[2]]
-        } else {
-            // 'f' order
-            vec![
-                0,
-                mask_strides[1] * (mask_shape[1] - 1) as isize,
-                mask_strides[2] * (mask_shape[2] - 1) as isize,
-            ]
-        };
-
         let (offsets, n) = build_offsets(mask_shape, &mask_strides, kernel.view());
         let dim_m1: Vec<_> = mask_shape.iter().map(|&len| len - 1).collect();
 
@@ -52,18 +39,11 @@ impl Offsets {
             })
             .collect();
 
-        let center_is_true = kernel.as_slice_memory_order().unwrap()[kernel.len() / 2];
-
-        //println!("Strides: {:?}", strides);
-        //println!("Backstrides: {:?}", backstrides);
-        //println!("Bounds: {:?}", bounds);
-
         Offsets {
             dim_m1,
-            mask_strides,
-            mask_backstrides,
             offsets,
-            center_is_true,
+            center_is_true: kernel.as_slice_memory_order().unwrap()[kernel.len() / 2],
+            axes: if mask_strides[0] > mask_strides[2] { [2, 1, 0] } else { [0, 1, 2] },
             strides,
             backstrides,
             bounds,
@@ -78,23 +58,19 @@ impl Offsets {
         &self.offsets[self.at..self.at + self.n]
     }
 
-    pub fn next(&mut self) -> isize {
-        let mut inc = 0;
-        for d in (0..3).rev() {
+    pub fn next(&mut self) {
+        for &d in &self.axes {
             if self.coordinates[d] < self.dim_m1[d] {
                 if !self.bounds[d].contains(&self.coordinates[d]) {
                     self.at += self.strides[d];
                 }
                 self.coordinates[d] += 1;
-                inc += self.mask_strides[d];
                 break;
             } else {
                 self.coordinates[d] = 0;
                 self.at -= self.backstrides[d];
-                inc -= self.mask_backstrides[d];
             }
         }
-        inc
     }
 
     pub fn center_is_true(&self) -> bool {
