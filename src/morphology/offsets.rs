@@ -16,13 +16,13 @@ pub struct Offsets {
 }
 
 impl Offsets {
-    pub fn new<S>(mask: &ArrayBase<S, Ix3>, kernel: ArrayView3<bool>) -> Offsets
+    pub fn new<S>(mask: &ArrayBase<S, Ix3>, kernel: ArrayView3<bool>, is_dilate: bool) -> Offsets
     where
         S: Data<Elem = bool>,
     {
         let mask_shape = mask.shape();
         let mask_strides = mask.strides().to_vec();
-        let (offsets, n) = build_offsets(mask_shape, &mask_strides, kernel.view());
+        let (offsets, n) = build_offsets(mask_shape, &mask_strides, kernel.view(), is_dilate);
         let dim_m1: Vec<_> = mask_shape.iter().map(|&len| len - 1).collect();
 
         let kernel_shape = kernel.shape();
@@ -86,9 +86,10 @@ fn build_offsets(
     shape: &[usize],
     strides: &[isize],
     kernel: ArrayView3<bool>,
+    is_dilate: bool,
 ) -> (Vec<isize>, usize) {
     let radii: Vec<_> = kernel.shape().iter().map(|&len| (len - 1) / 2).collect();
-    let indices = build_indices(kernel, &radii);
+    let indices = build_indices(kernel, &radii, is_dilate);
 
     let shape = [shape[0] as isize, shape[1] as isize, shape[2] as isize];
     let ooi_offset = shape.iter().fold(1, |acc, &s| acc * s);
@@ -100,24 +101,21 @@ fn build_offsets(
         pos.extend(shape[d] - radius..shape[d]);
         pos
     };
-    let z_pos = build_pos(2);
+    let z_pos = build_pos(0);
     let y_pos = build_pos(1);
-    let x_pos = build_pos(0);
+    let x_pos = build_pos(2);
 
     let mut offsets = vec![];
     for &z in &z_pos {
         for &y in &y_pos {
             for &x in &x_pos {
-                for &idx2 in &indices {
-                    let idx = (x + idx2.0, y + idx2.1, z + idx2.2);
-                    let offset = if !(0..shape[0]).contains(&idx.0)
-                        || !(0..shape[1]).contains(&idx.1)
-                        || !(0..shape[2]).contains(&idx.2)
-                    {
+                for idx2 in &indices {
+                    let idx = [z + idx2[0], y + idx2[1], x + idx2[2]];
+                    let offset = if idx.iter().zip(shape).any(|(i, s)| !(0..s).contains(i)) {
                         // This voxel in the current kernel is out of image
                         ooi_offset
                     } else {
-                        idx2.0 * strides[2] + idx2.1 * strides[1] + idx2.2 * strides[0]
+                        idx2.iter().zip(strides).fold(0, |acc, (i, s)| acc + i * s)
                     };
                     offsets.push(offset)
                 }
@@ -135,7 +133,7 @@ fn build_offsets(
     (offsets, indices.len())
 }
 
-fn build_indices(kernel: ArrayView3<bool>, radii: &[usize]) -> Vec<(isize, isize, isize)> {
+fn build_indices(kernel: ArrayView3<bool>, radii: &[usize], is_dilate: bool) -> Vec<[isize; 3]> {
     let radii = [radii[0] as isize, radii[1] as isize, radii[2] as isize];
     kernel
         .indexed_iter()
@@ -146,15 +144,17 @@ fn build_indices(kernel: ArrayView3<bool>, radii: &[usize]) -> Vec<(isize, isize
 
             // Do not add index (0, 0, 0) because it represents offset 0 which it's useless for
             // both `dilate` and `erode`, thanks to the `center_is_true` condition.
-            // Moreover, the indices must be reversed around the center (0, 0, 0). This is only
-            // important for asymmetric kernels because:
-            // - it's done "automatically" on symmetric kernel, obviously
-            // - dilate and erode work by applying offsets on all voxels (checking the state of the
-            // neighbors), not by applying the kernel on all voxels. This frame of reference switch
-            // implies that we must reverse the indices.
-            let idx =
-                (idx.0 as isize - radii[0], idx.1 as isize - radii[1], idx.2 as isize - radii[2]);
-            (idx != (0, 0, 0)).then_some((-1 * idx.0, -1 * idx.1, -1 * idx.2))
+            let centered =
+                [idx.0 as isize - radii[0], idx.1 as isize - radii[1], idx.2 as isize - radii[2]];
+            (centered != [0, 0, 0]).then_some(if is_dilate {
+                // dilate works by applying offsets on all voxels (checking the state of the
+                // neighbors), not by applying the kernel on all voxels. This frame of reference
+                // switch implies that we must reverse the indices.
+                [-1 * centered[0], -1 * centered[1], -1 * centered[2]]
+            } else {
+                // erosion doesn work "normally" so we don't need to reverse anything
+                centered
+            })
         })
         .collect()
 }

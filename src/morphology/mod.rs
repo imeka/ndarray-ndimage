@@ -23,7 +23,7 @@ where
         .expect("Morphological operations can only be called on arrays with contiguous memory.");
 
     let mut eroded = mask.to_owned();
-    let mut offsets = Offsets::new(mask, kernel.view());
+    let mut offsets = Offsets::new(mask, kernel.view(), false);
     erode(mask.view(), &mut eroded.view_mut(), &mut offsets);
     if iterations > 1 {
         let mut buffer = eroded.clone();
@@ -55,7 +55,7 @@ where
         .expect("Morphological operations can only be called on arrays with contiguous memory.");
 
     let mut dilated = mask.to_owned();
-    let mut offsets = Offsets::new(mask, kernel.view());
+    let mut offsets = Offsets::new(mask, kernel.view(), true);
     dilate(mask.view(), &mut dilated.view_mut(), &mut offsets);
     if iterations > 1 {
         let mut buffer = dilated.clone();
@@ -134,7 +134,7 @@ fn erode(mask: ArrayView3<bool>, out: &mut ArrayViewMut3<bool>, offsets: &mut Of
         } else {
             *o = true;
             for &offset in offsets.range() {
-                // Is the offset the special value "Out Of Image"?
+                // Is offset the special value "Out Of Image"?
                 if offset == ooi_offset {
                     // The offsets are sorted so we can quit as soon as we see the `ooi_offset`
                     break;
