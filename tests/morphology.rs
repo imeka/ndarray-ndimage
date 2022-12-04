@@ -1,4 +1,4 @@
-use ndarray::{s, Array3};
+use ndarray::{s, Array3, ShapeBuilder};
 
 use ndarray_ndimage::{
     binary_closing, binary_dilation, binary_erosion, binary_opening, Kernel3d, Mask,
@@ -285,4 +285,62 @@ fn test_asymmetric_kernel() {
     gt[(2, 3, 1)] = false;
     gt[(3, 2, 1)] = false;
     assert_eq!(binary_erosion(&mask.view(), &star, 1), gt);
+}
+
+#[test] // Results are logical. Both orders should always give the same results.
+fn test_memory_order() {
+    let mut star = Kernel3d::Star.generate();
+    let test_owned = |dim: (usize, usize, usize), kernel: &Array3<bool>| {
+        let test = Array3::from_elem(dim, true);
+        let c = binary_erosion(&test, &kernel, 1);
+        let mut test_f = Array3::from_elem(test.dim().f(), true);
+        test_f.assign(&test);
+        let f = binary_erosion(&test_f, &kernel, 1);
+        assert_eq!(c, f);
+    };
+    test_owned((4, 5, 6), &star);
+    test_owned((5, 5, 5), &star);
+    test_owned((6, 5, 4), &star);
+
+    star[(0, 1, 0)] = true;
+    test_owned((4, 5, 6), &star);
+    test_owned((5, 5, 5), &star);
+    test_owned((6, 5, 4), &star);
+
+    star[(0, 1, 0)] = false;
+    star[(1, 0, 2)] = true;
+    test_owned((4, 5, 6), &star);
+    test_owned((5, 5, 5), &star);
+    test_owned((6, 5, 4), &star);
+
+    let mut star_f = Array3::from_elem(star.dim().f(), false);
+    star_f.assign(&star);
+    test_owned((4, 5, 6), &star_f);
+    test_owned((5, 5, 5), &star_f);
+    test_owned((6, 5, 4), &star_f);
+
+    star_f[(0, 1, 0)] = true;
+    test_owned((4, 5, 6), &star_f);
+    test_owned((5, 5, 5), &star_f);
+    test_owned((6, 5, 4), &star_f);
+
+    star_f[(0, 1, 0)] = false;
+    star_f[(1, 0, 2)] = true;
+    test_owned((4, 5, 6), &star_f);
+    test_owned((5, 5, 5), &star_f);
+    test_owned((6, 5, 4), &star_f);
+
+    let kernel = Array3::from_elem((5, 5, 5), true);
+    let kernel_view = kernel.slice(s![..;2, ..;2, ..;2]);
+    let test_view = |dim: (usize, usize, usize)| {
+        let test = Array3::from_elem(dim, true);
+        let c = binary_erosion(&test, &kernel_view, 1);
+        let mut test_f = Array3::from_elem(test.dim().f(), true);
+        test_f.assign(&test);
+        let f = binary_erosion(&test_f, &kernel_view, 1);
+        assert_eq!(c, f);
+    };
+    test_view((4, 5, 6));
+    test_view((5, 5, 5));
+    test_view((6, 5, 4));
 }
