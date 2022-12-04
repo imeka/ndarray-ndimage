@@ -136,27 +136,25 @@ fn build_offsets(
 }
 
 fn build_indices(kernel: ArrayView3<bool>, radii: &[usize]) -> Vec<(isize, isize, isize)> {
-    // TODO This will work only on symmetric kernel
-    let indices_: Vec<_> = kernel
+    let radii = [radii[0] as isize, radii[1] as isize, radii[2] as isize];
+    kernel
         .indexed_iter()
         .filter_map(|(idx, &b)| {
-            b.then_some((
-                idx.0 as isize - radii[0] as isize,
-                idx.1 as isize - radii[1] as isize,
-                idx.2 as isize - radii[2] as isize,
-            ))
+            if !b {
+                return None;
+            }
+
+            // Do not add index (0, 0, 0) because it represents offset 0 which it's useless for
+            // both `dilate` and `erode`, thanks to the `center_is_true` condition.
+            // Moreover, the indices must be reversed around the center (0, 0, 0). This is only
+            // important for asymmetric kernels because:
+            // - it's done "automatically" on symmetric kernel, obviously
+            // - dilate and erode work by applying offsets on all voxels (checking the state of the
+            // neighbors), not by applying the kernel on all voxels. This frame of reference switch
+            // implies that we must reverse the indices.
+            let idx =
+                (idx.0 as isize - radii[0], idx.1 as isize - radii[1], idx.2 as isize - radii[2]);
+            (idx != (0, 0, 0)).then_some((-1 * idx.0, -1 * idx.1, -1 * idx.2))
         })
-        .collect();
-    let mut indices = Vec::with_capacity(indices_.len());
-    indices.extend(indices_[..indices_.len() / 2].iter().rev());
-
-    // Do not add index (0, 0, 0) because it represents offset 0 which it's useless for both
-    // `dilate` and `erode`, thanks to the `center_is_true` condition.
-    let center = indices_[indices_.len() / 2];
-    if center != (0, 0, 0) {
-        indices.push(center);
-    }
-
-    indices.extend(indices_[indices_.len() / 2 + 1..].iter().rev());
-    indices
+        .collect()
 }
