@@ -40,29 +40,28 @@ fn test_binary_erosion() {
 
 #[test] // Results verified with the `binary_erosion` function from SciPy. (v1.9)
 fn test_binary_erosion_hole() {
+    let star = Kernel3d::Star.generate();
     let mut mask = Mask::from_elem((11, 11, 11), true);
     mask[(5, 5, 5)] = false;
 
     // Remove the star shape in the image center.
     let mut gt = Mask::from_elem((11, 11, 11), true);
-    gt.slice_mut(s![4..7, 5, 5]).fill(false);
-    gt.slice_mut(s![5, 4..7, 5]).fill(false);
-    gt.slice_mut(s![5, 5, 4..7]).fill(false);
+    gt.slice_mut(s![4..7, 4..7, 4..7]).assign(&!&star);
 
-    assert_eq!(gt, binary_erosion(&mask, &Kernel3d::Star.generate(), 1));
+    assert_eq!(gt, binary_erosion(&mask, &star, 1));
 }
 
 #[test] // Results verified with the `binary_erosion` function from SciPy. (v1.9)
 fn test_binary_erosion_ball_kernel() {
+    let ball = Kernel3d::Ball.generate();
     let mut mask = Mask::from_elem((11, 11, 11), true);
     mask[(5, 5, 5)] = false;
 
     // Remove the ball shape in the image center.
     let mut gt = Mask::from_elem((11, 11, 11), true);
-    gt.slice_mut(s![4..7, 4..7, 4..7]).fill(false);
-    gt.slice_mut(s![4..7; 2, 4..7; 2, 4..7; 2]).fill(true);
+    gt.slice_mut(s![4..7, 4..7, 4..7]).assign(&!&ball);
 
-    assert_eq!(gt, binary_erosion(&mask, &Kernel3d::Ball.generate(), 1));
+    assert_eq!(gt, binary_erosion(&mask, &ball, 1));
 }
 
 #[test] // Results verified with the `binary_erosion` function from SciPy. (v1.9)
@@ -234,27 +233,15 @@ fn test_asymmetric_kernel() {
     let mut star = Kernel3d::Star.generate();
     star[(0, 1, 0)] = true;
     let mut gt = Mask::from_elem(mask.dim(), false);
+    gt.slice_mut(s![0..3, 1..4, 1..4]).assign(&star);
     gt[(0, 2, 1)] = true;
-    gt[(0, 2, 2)] = true;
-    gt[(1, 1, 2)] = true;
-    gt[(1, 2, 1)] = true;
-    gt[(1, 2, 2)] = true;
-    gt[(1, 2, 3)] = true;
-    gt[(1, 3, 2)] = true;
-    gt[(2, 2, 2)] = true;
     assert_eq!(binary_dilation(&mask.view(), &star, 1), gt);
 
     let mut star = Kernel3d::Star.generate();
     star[(1, 0, 2)] = true;
     let mut gt = Mask::from_elem(mask.dim(), false);
-    gt[(0, 2, 2)] = true;
-    gt[(1, 1, 2)] = true;
+    gt.slice_mut(s![0..3, 1..4, 1..4]).assign(&star);
     gt[(1, 1, 3)] = true;
-    gt[(1, 2, 1)] = true;
-    gt[(1, 2, 2)] = true;
-    gt[(1, 2, 3)] = true;
-    gt[(1, 3, 2)] = true;
-    gt[(2, 2, 2)] = true;
     assert_eq!(binary_dilation(&mask.view(), &star, 1), gt);
 
     let mut mask = Mask::from_elem((4, 5, 6), true);
@@ -263,27 +250,15 @@ fn test_asymmetric_kernel() {
     let mut star = Kernel3d::Star.generate();
     star[(0, 1, 0)] = true;
     let mut gt = Mask::from_elem(mask.dim(), true);
-    gt[(1, 2, 1)] = false;
-    gt[(2, 1, 1)] = false;
-    gt[(2, 2, 0)] = false;
-    gt[(2, 2, 1)] = false;
-    gt[(2, 2, 2)] = false;
-    gt[(2, 3, 1)] = false;
-    gt[(3, 2, 1)] = false;
+    gt.slice_mut(s![1..4, 1..4, 0..3]).assign(&!Kernel3d::Star.generate());
     gt[(3, 2, 2)] = false;
     assert_eq!(binary_erosion(&mask.view(), &star, 1), gt);
 
     let mut star = Kernel3d::Star.generate();
     star[(1, 0, 2)] = true;
     let mut gt = Mask::from_elem(mask.dim(), true);
-    gt[(1, 2, 1)] = false;
-    gt[(2, 1, 1)] = false;
-    gt[(2, 2, 0)] = false;
-    gt[(2, 2, 1)] = false;
-    gt[(2, 2, 2)] = false;
+    gt.slice_mut(s![1..4, 1..4, 0..3]).assign(&!Kernel3d::Star.generate());
     gt[(2, 3, 0)] = false;
-    gt[(2, 3, 1)] = false;
-    gt[(3, 2, 1)] = false;
     assert_eq!(binary_erosion(&mask.view(), &star, 1), gt);
 }
 
