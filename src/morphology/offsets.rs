@@ -1,6 +1,7 @@
 use ndarray::{ArrayBase, ArrayView3, Data, Ix3};
 
 pub struct Offsets {
+    mask_strides: Vec<isize>,
     dim_m1: Vec<usize>,
     offsets: Vec<isize>,
     center_is_true: bool,
@@ -22,6 +23,7 @@ impl Offsets {
     {
         let mask_shape = mask.shape();
         let mask_strides = mask.strides().to_vec();
+        let axes = if mask_strides[0] > mask_strides[2] { [2, 1, 0] } else { [0, 1, 2] };
         let (offsets, n) = build_offsets(mask_shape, &mask_strides, kernel.view(), is_dilate);
         let dim_m1: Vec<_> = mask_shape.iter().map(|&len| len - 1).collect();
 
@@ -43,10 +45,11 @@ impl Offsets {
             .collect();
 
         Offsets {
+            mask_strides,
             dim_m1,
             offsets,
             center_is_true,
-            axes: if mask_strides[0] > mask_strides[2] { [2, 1, 0] } else { [0, 1, 2] },
+            axes,
             strides,
             backstrides,
             bounds,
@@ -59,6 +62,35 @@ impl Offsets {
     /// Return all offsets defined at the current positon
     pub fn range(&self) -> &[isize] {
         &self.offsets[self.at..self.at + self.n]
+    }
+
+    pub fn move_to(&mut self, idx: isize) {
+        //print!("{}  ", idx);
+        let mut idx = idx as usize;
+        for d in [0, 1, 2] {
+            let s = self.mask_strides[d] as usize;
+            self.coordinates[d] = idx / s;
+            idx -= self.coordinates[d] * s;
+        }
+        //print!("{:?}  ", self.coordinates);
+        //if self.coordinates == [5, 5, 6] {
+        //    print!("");
+        //}
+
+        self.at = 0;
+        for &d in &self.axes {
+            let (start, end) = (self.bounds[d].start, self.bounds[d].end);
+            let c = self.coordinates[d];
+            let j = if c < start {
+                c
+            } else if c > end && end >= start {
+                c + start - end
+            } else {
+                start
+            };
+            self.at += self.strides[d] * j;
+        }
+        //println!("{:?}", self.range());
     }
 
     pub fn next(&mut self) {

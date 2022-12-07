@@ -1,6 +1,6 @@
 mod offsets;
 
-use ndarray::{ArrayBase, ArrayView3, ArrayViewMut3, Data, Ix3};
+use ndarray::{Array3, ArrayBase, ArrayView3, ArrayViewMut3, Data, Ix3};
 
 use crate::Mask;
 use offsets::Offsets;
@@ -54,16 +54,17 @@ where
     mask.as_slice_memory_order()
         .expect("Morphological operations can only be called on arrays with contiguous memory.");
 
+    let mut last_indices = (iterations > 1).then_some(vec![]);
     let mut dilated = mask.to_owned();
     let mut offsets = Offsets::new(mask, kernel.view(), true);
-    dilate(mask.view(), &mut dilated.view_mut(), &mut offsets);
-    if iterations > 1 {
-        let mut buffer = dilated.clone();
-        for it in 1..iterations {
-            dilate(buffer.view(), &mut dilated.view_mut(), &mut offsets);
-            if it != iterations - 1 {
-                buffer = dilated.clone();
+    dilate(mask.view(), &mut dilated, &mut offsets, &mut last_indices);
+
+    if let Some(mut last_indices) = last_indices {
+        for _ in 1..iterations {
+            if last_indices.is_empty() {
+                return dilated;
             }
+            dilate_from_indices(&mut dilated, &mut offsets, &mut last_indices);
         }
     }
     dilated
@@ -153,7 +154,12 @@ fn erode(mask: ArrayView3<bool>, out: &mut ArrayViewMut3<bool>, offsets: &mut Of
 
 // Even if `erode` and `dilate` could share the same code (as SciPy does), it produces much slower
 // code in practice. See previous function for some documentation.
-fn dilate(mask: ArrayView3<bool>, out: &mut ArrayViewMut3<bool>, offsets: &mut Offsets) {
+fn dilate(
+    mask: ArrayView3<bool>,
+    out: &mut Array3<bool>,
+    offsets: &mut Offsets,
+    last_indices: &mut Option<Vec<isize>>,
+) {
     let mask = mask.as_slice_memory_order().unwrap();
     let out = out.as_slice_memory_order_mut().unwrap();
     let center_is_true = offsets.center_is_true();
@@ -175,8 +181,41 @@ fn dilate(mask: ArrayView3<bool>, out: &mut ArrayViewMut3<bool>, offsets: &mut O
                     }
                 }
             }
+
+            if let Some(last_indices) = last_indices {
+                if *o != m {
+                    // Remember that `i` IS the neighbor, not the "center"
+                    last_indices.push(i);
+                }
+            }
         }
         offsets.next();
         i += 1;
     }
+}
+
+fn dilate_from_indices(
+    out: &mut Array3<bool>,
+    offsets: &mut Offsets,
+    last_indices: &mut Vec<isize>,
+) {
+    let out = out.as_slice_memory_order_mut().unwrap();
+    let ooi_offset = out.len() as isize;
+
+    let mut new_indices = vec![];
+    for &i in &*last_indices {
+        offsets.move_to(i);
+        for &offset in offsets.range() {
+            if offset == ooi_offset {
+                break;
+            } else {
+                let out = &mut out[(i + offset) as usize];
+                if !*out {
+                    new_indices.push(i + offset);
+                }
+                *out = true;
+            }
+        }
+    }
+    *last_indices = new_indices;
 }
