@@ -30,11 +30,13 @@ where
     erode(mask.view(), &mut eroded.view_mut(), &mut offsets, &mut last_indices);
 
     if let Some(mut last_indices) = last_indices {
-        for _ in 1..iterations {
+        for it in 1..iterations {
             if last_indices.is_empty() {
                 break;
             }
-            next_it(&mut eroded, &mut offsets, &mut last_indices, true, false);
+
+            let save_next_indices = it < iterations - 1;
+            next_it(&mut eroded, &mut offsets, &mut last_indices, save_next_indices, true, false);
         }
     }
     eroded
@@ -65,11 +67,13 @@ where
     dilate(mask.view(), &mut dilated, &mut offsets, &mut last_indices);
 
     if let Some(mut last_indices) = last_indices {
-        for _ in 1..iterations {
+        for it in 1..iterations {
             if last_indices.is_empty() {
                 break;
             }
-            next_it(&mut dilated, &mut offsets, &mut last_indices, false, true);
+
+            let save_next_indices = it < iterations - 1;
+            next_it(&mut dilated, &mut offsets, &mut last_indices, save_next_indices, false, true);
         }
     }
     dilated
@@ -218,6 +222,7 @@ fn next_it(
     out: &mut Array3<bool>,
     offsets: &mut Offsets,
     last_indices: &mut Vec<isize>,
+    save_next_indices: bool,
     b1: bool,
     b2: bool,
 ) {
@@ -234,7 +239,7 @@ fn next_it(
                 break;
             } else {
                 let out = &mut out[(i + offset) as usize];
-                if *out == b1 {
+                if save_next_indices && *out == b1 {
                     // This time, `i` is the center and `i + offset` is the neighbor
                     new_indices.push(i + offset);
                 }
