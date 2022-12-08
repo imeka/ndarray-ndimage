@@ -265,45 +265,45 @@ fn test_asymmetric_kernel() {
 #[test] // Results are logical. Both orders should always give the same results.
 fn test_memory_order() {
     let mut star = Kernel3d::Star.generate();
-    let test_owned = |dim: (usize, usize, usize), kernel: &Array3<bool>| {
+    let test_owned = |dim: (usize, usize, usize), kernel: &Array3<bool>, iterations: usize| {
         let test = Array3::from_elem(dim, true);
         let c = binary_erosion(&test, &kernel, 1);
         let mut test_f = Array3::from_elem(test.dim().f(), true);
         test_f.assign(&test);
-        let f = binary_erosion(&test_f, &kernel, 1);
+        let f = binary_erosion(&test_f, &kernel, iterations);
         assert_eq!(c, f);
     };
-    test_owned((4, 5, 6), &star);
-    test_owned((5, 5, 5), &star);
-    test_owned((6, 5, 4), &star);
+    test_owned((4, 5, 6), &star, 1);
+    test_owned((5, 5, 5), &star, 2);
+    test_owned((6, 5, 4), &star, 1);
 
     star[(0, 1, 0)] = true;
-    test_owned((4, 5, 6), &star);
-    test_owned((5, 5, 5), &star);
-    test_owned((6, 5, 4), &star);
+    test_owned((4, 5, 6), &star, 2);
+    test_owned((5, 5, 5), &star, 1);
+    test_owned((6, 5, 4), &star, 2);
 
     star[(0, 1, 0)] = false;
     star[(1, 0, 2)] = true;
-    test_owned((4, 5, 6), &star);
-    test_owned((5, 5, 5), &star);
-    test_owned((6, 5, 4), &star);
+    test_owned((4, 5, 6), &star, 1);
+    test_owned((5, 5, 5), &star, 1);
+    test_owned((6, 5, 4), &star, 2);
 
     let mut star_f = Array3::from_elem(star.dim().f(), false);
     star_f.assign(&star);
-    test_owned((4, 5, 6), &star_f);
-    test_owned((5, 5, 5), &star_f);
-    test_owned((6, 5, 4), &star_f);
+    test_owned((4, 5, 6), &star_f, 1);
+    test_owned((5, 5, 5), &star_f, 1);
+    test_owned((6, 5, 4), &star_f, 1);
 
     star_f[(0, 1, 0)] = true;
-    test_owned((4, 5, 6), &star_f);
-    test_owned((5, 5, 5), &star_f);
-    test_owned((6, 5, 4), &star_f);
+    test_owned((4, 5, 6), &star_f, 2);
+    test_owned((5, 5, 5), &star_f, 1);
+    test_owned((6, 5, 4), &star_f, 1);
 
     star_f[(0, 1, 0)] = false;
     star_f[(1, 0, 2)] = true;
-    test_owned((4, 5, 6), &star_f);
-    test_owned((5, 5, 5), &star_f);
-    test_owned((6, 5, 4), &star_f);
+    test_owned((4, 5, 6), &star_f, 1);
+    test_owned((5, 5, 5), &star_f, 1);
+    test_owned((6, 5, 4), &star_f, 2);
 
     let kernel = Array3::from_elem((5, 5, 5), true);
     let kernel_view = kernel.slice(s![..;2, ..;2, ..;2]);
