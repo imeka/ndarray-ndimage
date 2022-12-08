@@ -1,6 +1,6 @@
 [package]
 name = "ndarray-ndimage"
-version = "0.2.2"
+version = "0.3.0"
 authors = ["Nil Goyette <nil.goyette@imeka.ca>"]
 edition = "2021"
 
