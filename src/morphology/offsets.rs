@@ -4,7 +4,6 @@ pub struct Offsets {
     mask_strides: Vec<isize>,
     dim_m1: Vec<usize>,
     offsets: Vec<isize>,
-    center_is_true: bool,
     axes: [usize; 3],
     axes_rev: [usize; 3],
 
@@ -33,9 +32,6 @@ impl Offsets {
         let dim_m1: Vec<_> = mask_shape.iter().map(|&len| len - 1).collect();
 
         let kernel_shape = kernel.shape();
-        let center_is_true =
-            kernel[(kernel_shape[0] / 2, kernel_shape[1] / 2, kernel_shape[2] / 2)];
-
         let mut strides = vec![0; mask.ndim()];
         strides[mask.ndim() - 1] = n;
         for d in (0..mask.ndim() - 1).rev() {
@@ -53,7 +49,6 @@ impl Offsets {
             mask_strides,
             dim_m1,
             offsets,
-            center_is_true,
             axes,
             axes_rev,
             strides,
@@ -107,10 +102,6 @@ impl Offsets {
                 self.at -= self.backstrides[d];
             }
         }
-    }
-
-    pub fn center_is_true(&self) -> bool {
-        self.center_is_true
     }
 }
 

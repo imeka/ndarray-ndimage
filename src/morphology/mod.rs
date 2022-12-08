@@ -8,7 +8,8 @@ use offsets::Offsets;
 /// Binary erosion of a 3D binary image.
 ///
 /// * `mask` - Binary image to be eroded.
-/// * `kernel` - Structuring element used for the erosion.
+/// * `kernel` - Structuring element used for the erosion. Must be of odd length. The center must
+///   be `true`.
 /// * `iterations` - The erosion is repeated iterations times.
 pub fn binary_erosion<SM, SK>(
     mask: &ArrayBase<SM, Ix3>,
@@ -31,7 +32,7 @@ where
     if let Some(mut last_indices) = last_indices {
         for _ in 1..iterations {
             if last_indices.is_empty() {
-                return eroded;
+                break;
             }
             next_it(&mut eroded, &mut offsets, &mut last_indices, true, false);
         }
@@ -42,7 +43,8 @@ where
 /// Binary dilation of a 3D binary image.
 ///
 /// * `mask` - Binary image to be dilated.
-/// * `kernel` - Structuring element used for the dilation.
+/// * `kernel` - Structuring element used for the erosion. Must be of odd length. The center must
+///   be `true`.
 /// * `iterations` - The dilation is repeated iterations times.
 pub fn binary_dilation<SM, SK>(
     mask: &ArrayBase<SM, Ix3>,
@@ -65,7 +67,7 @@ where
     if let Some(mut last_indices) = last_indices {
         for _ in 1..iterations {
             if last_indices.is_empty() {
-                return dilated;
+                break;
             }
             next_it(&mut dilated, &mut offsets, &mut last_indices, false, true);
         }
@@ -125,6 +127,10 @@ where
     binary_erosion(&dilated, kernel, iterations)
 }
 
+/// Actual erosion work.
+///
+/// `out` MUST be a clone of `mask`, otherwise this won't work. We're not setting any values
+/// uselessly, to be as fast as possible.
 fn erode(
     mask: ArrayView3<bool>,
     out: &mut ArrayViewMut3<bool>,
@@ -133,15 +139,11 @@ fn erode(
 ) {
     let mask = mask.as_slice_memory_order().unwrap();
     let out = out.as_slice_memory_order_mut().unwrap();
-    let center_is_true = offsets.center_is_true();
     let ooi_offset = mask.len() as isize;
 
     let mut i = 0;
     for (&m, o) in mask.iter().zip(out) {
-        if center_is_true && !m {
-            *o = false;
-        } else {
-            *o = true;
+        if m {
             for &offset in offsets.range() {
                 // Is offset the special value "Out Of Image"?
                 if offset == ooi_offset {
@@ -151,16 +153,14 @@ fn erode(
                     // unsafe { !*mask.get_unchecked((i + offset) as usize) }
                     if !mask[(i + offset) as usize] {
                         *o = false;
+                        // If we have more than one iteration, note all modified indices
+                        if let Some(last_indices) = last_indices {
+                            // Remember that `i` IS the neighbor, not the "center", so we're adding
+                            // `i` here, not `i + offset`.
+                            last_indices.push(i);
+                        }
                         break;
                     }
-                }
-            }
-
-            // If we have more than one iteration, note all modified indices
-            if let Some(last_indices) = last_indices {
-                if *o != m {
-                    // Remember that `i` IS the neighbor, not the "center"
-                    last_indices.push(i);
                 }
             }
         }
@@ -169,25 +169,25 @@ fn erode(
     }
 }
 
-// Even if `erode` and `dilate` could share the same code (as SciPy does), it produces much slower
-// code in practice. See previous function for some documentation.
+/// Actual dilation work.
+///
+/// `out` MUST be a clone of `mask`, otherwise this won't work. We're not setting any values
+/// uselessly, to be as fast as possible.
 fn dilate(
     mask: ArrayView3<bool>,
     out: &mut Array3<bool>,
     offsets: &mut Offsets,
     last_indices: &mut Option<Vec<isize>>,
 ) {
+    // Even if `erode` and `dilate` could share the same code (as SciPy does), it produces much
+    // slower code in practice. See previous function for some documentation.
     let mask = mask.as_slice_memory_order().unwrap();
     let out = out.as_slice_memory_order_mut().unwrap();
-    let center_is_true = offsets.center_is_true();
     let ooi_offset = mask.len() as isize;
 
     let mut i = 0;
     for (&m, o) in mask.iter().zip(out) {
-        if center_is_true && m {
-            *o = true;
-        } else {
-            *o = false;
+        if !m {
             for &offset in offsets.range() {
                 if offset == ooi_offset {
                     break;
@@ -195,14 +195,11 @@ fn dilate(
                     // unsafe { *mask.get_unchecked((i + offset) as usize) }
                     if mask[(i + offset) as usize] {
                         *o = true;
+                        if let Some(last_indices) = last_indices {
+                            last_indices.push(i);
+                        }
                         break;
                     }
-                }
-            }
-
-            if let Some(last_indices) = last_indices {
-                if *o != m {
-                    last_indices.push(i);
                 }
             }
         }
