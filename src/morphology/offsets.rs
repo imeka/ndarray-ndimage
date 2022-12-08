@@ -6,6 +6,7 @@ pub struct Offsets {
     offsets: Vec<isize>,
     center_is_true: bool,
     axes: [usize; 3],
+    axes_rev: [usize; 3],
 
     strides: Vec<usize>,
     backstrides: Vec<usize>,
@@ -23,7 +24,11 @@ impl Offsets {
     {
         let mask_shape = mask.shape();
         let mask_strides = mask.strides().to_vec();
-        let axes = if mask_strides[0] > mask_strides[2] { [2, 1, 0] } else { [0, 1, 2] };
+        let (axes, axes_rev) = if mask_strides[0] > mask_strides[2] {
+            ([2, 1, 0], [0, 1, 2])
+        } else {
+            ([0, 1, 2], [2, 1, 0])
+        };
         let (offsets, n) = build_offsets(mask_shape, &mask_strides, kernel.view(), is_dilate);
         let dim_m1: Vec<_> = mask_shape.iter().map(|&len| len - 1).collect();
 
@@ -50,6 +55,7 @@ impl Offsets {
             offsets,
             center_is_true,
             axes,
+            axes_rev,
             strides,
             backstrides,
             bounds,
@@ -65,17 +71,13 @@ impl Offsets {
     }
 
     pub fn move_to(&mut self, idx: isize) {
-        //print!("{}  ", idx);
+        // TODO This probably exists in ndarray. I'm not sure where though.
         let mut idx = idx as usize;
-        for d in [0, 1, 2] {
+        for &d in &self.axes_rev {
             let s = self.mask_strides[d] as usize;
             self.coordinates[d] = idx / s;
             idx -= self.coordinates[d] * s;
         }
-        //print!("{:?}  ", self.coordinates);
-        //if self.coordinates == [5, 5, 6] {
-        //    print!("");
-        //}
 
         self.at = 0;
         for &d in &self.axes {
@@ -90,7 +92,6 @@ impl Offsets {
             };
             self.at += self.strides[d] * j;
         }
-        //println!("{:?}", self.range());
     }
 
     pub fn next(&mut self) {

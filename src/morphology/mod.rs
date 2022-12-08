@@ -22,16 +22,17 @@ where
     mask.as_slice_memory_order()
         .expect("Morphological operations can only be called on arrays with contiguous memory.");
 
+    let mut last_indices = (iterations > 1).then_some(vec![]);
     let mut eroded = mask.to_owned();
     let mut offsets = Offsets::new(mask, kernel.view(), false);
-    erode(mask.view(), &mut eroded.view_mut(), &mut offsets);
-    if iterations > 1 {
-        let mut buffer = eroded.clone();
-        for it in 1..iterations {
-            erode(buffer.view(), &mut eroded.view_mut(), &mut offsets);
-            if it != iterations - 1 {
-                buffer = eroded.clone();
+    erode(mask.view(), &mut eroded.view_mut(), &mut offsets, &mut last_indices);
+
+    if let Some(mut last_indices) = last_indices {
+        for _ in 1..iterations {
+            if last_indices.is_empty() {
+                return eroded;
             }
+            erode_from_indices(&mut eroded, &mut offsets, &mut last_indices);
         }
     }
     eroded
@@ -122,7 +123,12 @@ where
     binary_erosion(&dilated, kernel, iterations)
 }
 
-fn erode(mask: ArrayView3<bool>, out: &mut ArrayViewMut3<bool>, offsets: &mut Offsets) {
+fn erode(
+    mask: ArrayView3<bool>,
+    out: &mut ArrayViewMut3<bool>,
+    offsets: &mut Offsets,
+    last_indices: &mut Option<Vec<isize>>,
+) {
     let mask = mask.as_slice_memory_order().unwrap();
     let out = out.as_slice_memory_order_mut().unwrap();
     let center_is_true = offsets.center_is_true();
@@ -146,10 +152,44 @@ fn erode(mask: ArrayView3<bool>, out: &mut ArrayViewMut3<bool>, offsets: &mut Of
                     }
                 }
             }
+
+            // If we have more than one iteration, note all modfied indices
+            if let Some(last_indices) = last_indices {
+                if *o != m {
+                    // Remember that `i` IS the neighbor, not the "center"
+                    last_indices.push(i);
+                }
+            }
         }
         offsets.next();
         i += 1;
     }
+}
+
+fn erode_from_indices(
+    out: &mut Array3<bool>,
+    offsets: &mut Offsets,
+    last_indices: &mut Vec<isize>,
+) {
+    let out = out.as_slice_memory_order_mut().unwrap();
+    let ooi_offset = out.len() as isize;
+
+    let mut new_indices = vec![];
+    for &i in &*last_indices {
+        offsets.move_to(i);
+        for &offset in offsets.range() {
+            if offset == ooi_offset {
+                break;
+            } else {
+                let out = &mut out[(i + offset) as usize];
+                if *out {
+                    new_indices.push(i + offset);
+                }
+                *out = false;
+            }
+        }
+    }
+    *last_indices = new_indices;
 }
 
 // Even if `erode` and `dilate` could share the same code (as SciPy does), it produces much slower
@@ -184,7 +224,6 @@ fn dilate(
 
             if let Some(last_indices) = last_indices {
                 if *o != m {
-                    // Remember that `i` IS the neighbor, not the "center"
                     last_indices.push(i);
                 }
             }
