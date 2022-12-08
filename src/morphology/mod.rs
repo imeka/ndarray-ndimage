@@ -22,6 +22,7 @@ where
     mask.as_slice_memory_order()
         .expect("Morphological operations can only be called on arrays with contiguous memory.");
 
+    // We can't really reserve a good number of elements here. It could be anything.
     let mut last_indices = (iterations > 1).then_some(vec![]);
     let mut eroded = mask.to_owned();
     let mut offsets = Offsets::new(mask, kernel.view(), false);
@@ -32,7 +33,7 @@ where
             if last_indices.is_empty() {
                 return eroded;
             }
-            erode_from_indices(&mut eroded, &mut offsets, &mut last_indices);
+            next_it(&mut eroded, &mut offsets, &mut last_indices, true, false);
         }
     }
     eroded
@@ -55,6 +56,7 @@ where
     mask.as_slice_memory_order()
         .expect("Morphological operations can only be called on arrays with contiguous memory.");
 
+    // We can't really reserve a good number of elements here. It could be anything.
     let mut last_indices = (iterations > 1).then_some(vec![]);
     let mut dilated = mask.to_owned();
     let mut offsets = Offsets::new(mask, kernel.view(), true);
@@ -65,7 +67,7 @@ where
             if last_indices.is_empty() {
                 return dilated;
             }
-            dilate_from_indices(&mut dilated, &mut offsets, &mut last_indices);
+            next_it(&mut dilated, &mut offsets, &mut last_indices, false, true);
         }
     }
     dilated
@@ -146,6 +148,7 @@ fn erode(
                     // The offsets are sorted so we can quit as soon as we see the `ooi_offset`
                     break;
                 } else {
+                    // unsafe { !*mask.get_unchecked((i + offset) as usize) }
                     if !mask[(i + offset) as usize] {
                         *o = false;
                         break;
@@ -153,7 +156,7 @@ fn erode(
                 }
             }
 
-            // If we have more than one iteration, note all modfied indices
+            // If we have more than one iteration, note all modified indices
             if let Some(last_indices) = last_indices {
                 if *o != m {
                     // Remember that `i` IS the neighbor, not the "center"
@@ -164,32 +167,6 @@ fn erode(
         offsets.next();
         i += 1;
     }
-}
-
-fn erode_from_indices(
-    out: &mut Array3<bool>,
-    offsets: &mut Offsets,
-    last_indices: &mut Vec<isize>,
-) {
-    let out = out.as_slice_memory_order_mut().unwrap();
-    let ooi_offset = out.len() as isize;
-
-    let mut new_indices = vec![];
-    for &i in &*last_indices {
-        offsets.move_to(i);
-        for &offset in offsets.range() {
-            if offset == ooi_offset {
-                break;
-            } else {
-                let out = &mut out[(i + offset) as usize];
-                if *out {
-                    new_indices.push(i + offset);
-                }
-                *out = false;
-            }
-        }
-    }
-    *last_indices = new_indices;
 }
 
 // Even if `erode` and `dilate` could share the same code (as SciPy does), it produces much slower
@@ -215,6 +192,7 @@ fn dilate(
                 if offset == ooi_offset {
                     break;
                 } else {
+                    // unsafe { *mask.get_unchecked((i + offset) as usize) }
                     if mask[(i + offset) as usize] {
                         *o = true;
                         break;
@@ -233,14 +211,24 @@ fn dilate(
     }
 }
 
-fn dilate_from_indices(
+/// Common function do compute another iteration of dilate or erode.
+///
+/// Use only when `dilate` or `erode` have been called and the `last_indices` collected.
+///
+/// - Use `false` and `true` for dilate.
+/// - Use `true` and `false` for erode.
+fn next_it(
     out: &mut Array3<bool>,
     offsets: &mut Offsets,
     last_indices: &mut Vec<isize>,
+    b1: bool,
+    b2: bool,
 ) {
     let out = out.as_slice_memory_order_mut().unwrap();
     let ooi_offset = out.len() as isize;
 
+    // Again, it's complex to guess the right number of elements. I think the same number as last
+    // time + ?% makes sense, but it could also be empty.
     let mut new_indices = vec![];
     for &i in &*last_indices {
         offsets.move_to(i);
@@ -249,10 +237,11 @@ fn dilate_from_indices(
                 break;
             } else {
                 let out = &mut out[(i + offset) as usize];
-                if !*out {
+                if *out == b1 {
+                    // This time, `i` is the center and `i + offset` is the neighbor
                     new_indices.push(i + offset);
                 }
-                *out = true;
+                *out = b2;
             }
         }
     }

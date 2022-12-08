@@ -185,7 +185,7 @@ fn build_indices(kernel: ArrayView3<bool>, radii: &[usize], is_dilate: bool) -> 
                 // switch implies that we must reverse the indices.
                 [-1 * centered[0], -1 * centered[1], -1 * centered[2]]
             } else {
-                // erosion doesn work "normally" so we don't need to reverse anything
+                // erosion doesn't work "normally" so we don't need to reverse anything
                 centered
             })
         })
