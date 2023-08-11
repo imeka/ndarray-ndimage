@@ -112,55 +112,78 @@ impl ZoomShiftReslicer {
         zooms: [f64; 3],
         shifts: [f64; 3],
     ) -> ZoomShiftReslicer {
-        let order = 3usize;
+        let order = 3;
 
-        let mut offsets = [vec![0; odim[0]], vec![0; odim[1]], vec![0; odim[2]]];
-        let mut edge_offsets = [
+        let offsets = [vec![0; odim[0]], vec![0; odim[1]], vec![0; odim[2]]];
+        let edge_offsets = [
             Array2::zeros((odim[0], order + 1)),
             Array2::zeros((odim[1], order + 1)),
             Array2::zeros((odim[2], order + 1)),
         ];
-        let mut is_edge_case = [vec![false; odim[0]], vec![false; odim[1]], vec![false; odim[2]]];
-        let mut splvals = [
+        let is_edge_case = [vec![false; odim[0]], vec![false; odim[1]], vec![false; odim[2]]];
+        let splvals = [
             Array2::zeros((odim[0], order + 1)),
             Array2::zeros((odim[1], order + 1)),
             Array2::zeros((odim[2], order + 1)),
         ];
 
+        let mut reslicer = ZoomShiftReslicer { offsets, edge_offsets, is_edge_case, splvals };
+        reslicer.build_offsets(idim, odim, zooms, shifts, order);
+        reslicer.build_spline_vals(odim, zooms, shifts, order);
+        reslicer
+    }
+
+    fn build_offsets(
+        &mut self,
+        idim: [usize; 3],
+        odim: [usize; 3],
+        zooms: [f64; 3],
+        shifts: [f64; 3],
+        order: usize,
+    ) {
+        let iorder = order as isize;
         let idim = [idim[0] as isize, idim[1] as isize, idim[2] as isize];
-        let odim = [odim[0], odim[1], odim[2]];
+        let calculate_start = |axis: usize, from: usize| {
+            let mut to = (from as f64 + shifts[axis]) * zooms[axis];
+            if order & 1 == 0 {
+                to += 0.5;
+            }
+            to.floor() as isize - iorder / 2
+        };
 
         for axis in 0..3 {
-            let zoom = zooms[axis];
-            let shift = shifts[axis];
-            let offsets = &mut offsets[axis];
-            let edge_offsets = &mut edge_offsets[axis];
-            let is_edge_case = &mut is_edge_case[axis];
-            let splvals = &mut splvals[axis];
+            let offsets = &mut self.offsets[axis];
+            let edge_offsets = &mut self.edge_offsets[axis];
+            let is_edge_case = &mut self.is_edge_case[axis];
+            let len = idim[axis];
             for from in 0..odim[axis] {
-                let to = (from as f64 + shift) * zoom;
-                let start = to.floor() as isize - 1;
+                let start = calculate_start(axis, from);
                 offsets[from] = start;
 
-                if start < 0 || start + 3 >= idim[axis] {
+                if start < 0 || start + iorder >= idim[axis] {
                     is_edge_case[from] = true;
                     for o in 0..=order {
-                        let mut idx = start + o as isize;
-                        let len = idim[axis];
-                        let s2 = 2 * len - 2;
-                        if idx < 0 {
-                            idx = s2 * (-idx / s2) + idx;
-                            idx = if idx <= 1 - len { idx + s2 } else { -idx };
-                        } else {
-                            idx -= s2 * (idx / s2);
-                            if idx >= len {
-                                idx = s2 - idx;
-                            }
-                        }
+                        let idx = map_coordinates(len, start, o);
                         edge_offsets[(from, o)] = idx - start;
                     }
                 }
+            }
+        }
+    }
 
+    fn build_spline_vals(
+        &mut self,
+        odim: [usize; 3],
+        zooms: [f64; 3],
+        shifts: [f64; 3],
+        order: usize,
+    ) {
+        for axis in 0..3 {
+            let zoom = zooms[axis];
+            let shift = shifts[axis];
+            let splvals = &mut self.splvals[axis];
+            for from in 0..odim[axis] {
+                let to = (from as f64 + shift) * zoom;
                 let x = to - to.floor();
                 let y = x;
                 let z = 1.0 - x;
@@ -171,8 +194,6 @@ impl ZoomShiftReslicer {
                     1.0 - (splvals[(from, 0)] + splvals[(from, 1)] + splvals[(from, 2)]);
             }
         }
-
-        ZoomShiftReslicer { offsets, edge_offsets, is_edge_case, splvals }
     }
 
     /// Spline interpolation with up-to 8 neighbors of a point.
@@ -228,4 +249,19 @@ impl ZoomShiftReslicer {
         }
         t
     }
+}
+
+fn map_coordinates(len: isize, start: isize, o: usize) -> isize {
+    let mut idx = start + o as isize;
+    let s2 = 2 * len - 2;
+    if idx < 0 {
+        idx = s2 * (-idx / s2) + idx;
+        idx = if idx <= 1 - len { idx + s2 } else { -idx };
+    } else {
+        idx -= s2 * (idx / s2);
+        if idx >= len {
+            idx = s2 - idx;
+        }
+    }
+    idx
 }
