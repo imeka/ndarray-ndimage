@@ -3,7 +3,7 @@ use std::ops::{Add, Sub};
 use ndarray::{Array, Array2, ArrayBase, Data, Ix3, Zip};
 use num_traits::{FromPrimitive, Num, ToPrimitive};
 
-use crate::{array_like, spline_filter};
+use crate::{array_like, round_ties_even, spline_filter};
 
 /// Zoom an array.
 ///
@@ -11,8 +11,6 @@ use crate::{array_like, spline_filter};
 ///
 /// * `data` - A 3D array of the data to zoom
 /// * `zoom` - Number of values padded to the edges of each axis.
-/// * `order` - The order of the spline.
-/// * `mode` - The mode parameter determines how the input array is extended beyond its boundaries.
 /// * `prefilter` - Determines if the input array is prefiltered with spline_filter before
 ///   interpolation. The default is `true`, which will create a temporary `f64` array of filtered
 ///   values if `order > 1`. If setting this to `false`, the output will be slightly blurred if
@@ -24,7 +22,7 @@ where
 {
     let mut o_dim = data.raw_dim();
     for (ax, (&ax_len, zoom)) in data.shape().iter().zip(zoom.iter()).enumerate() {
-        o_dim[ax] = (ax_len as f64 * zoom).round() as usize;
+        o_dim[ax] = round_ties_even(ax_len as f64 * zoom) as usize;
     }
 
     let mut nom = data.raw_dim();
@@ -39,12 +37,6 @@ where
         nom[2] as f64 / div[2] as f64,
     ];
 
-    let mut out = array_like(&data, o_dim, A::zero());
-
-    println!("Starting reslicer with");
-    println!("idim: {:?}", data.dim());
-    println!("odim: {:?}", o_dim);
-    println!("zoom: {:?}", zoom);
     let reslicer = ZoomShiftReslicer::new(
         [data.dim().0, data.dim().1, data.dim().2],
         [o_dim[0], o_dim[1], o_dim[2]],
@@ -53,6 +45,7 @@ where
     );
 
     let order = 3;
+    let mut out = array_like(&data, o_dim, A::zero());
     if prefilter && order > 1 {
         let data = spline_filter(data, 3);
         Zip::indexed(&mut out).for_each(|idx, o| {
