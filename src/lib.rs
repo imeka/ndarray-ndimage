@@ -21,7 +21,7 @@ pub use filters::{
     },
     BorderMode,
 };
-pub use interpolation::{spline_filter, spline_filter1d, zoom};
+pub use interpolation::{shift, spline_filter, spline_filter1d, zoom};
 pub use measurements::{label, label_histogram, largest_connected_components, most_frequent_label};
 pub use morphology::{binary_closing, binary_dilation, binary_erosion, binary_opening};
 pub use pad::{pad, pad_to, PadMode};

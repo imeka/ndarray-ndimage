@@ -5,12 +5,47 @@ use num_traits::{FromPrimitive, Num, ToPrimitive};
 
 use crate::{array_like, round_ties_even, spline_filter};
 
+/// Shift an array.
+///
+/// The array is shifted using spline interpolation of the requested order. Points outside the
+/// boundaries of the input are filled according to the given mode.
+///
+/// * `data` - A 3D array of the data to shift.
+/// * `shift` - The shift along the axes.
+/// * `prefilter` - Determines if the input array is prefiltered with spline_filter before
+///   interpolation. The default is `true`, which will create a temporary `f64` array of filtered
+///   values if `order > 1`. If setting this to `false`, the output will be slightly blurred if
+///   `order > 1`, unless the input is prefiltered.
+pub fn shift<S, A>(data: &ArrayBase<S, Ix3>, shift: [f64; 3], prefilter: bool) -> Array<A, Ix3>
+where
+    S: Data<Elem = A>,
+    A: Copy + Num + FromPrimitive + ToPrimitive,
+{
+    let dim = [data.dim().0, data.dim().1, data.dim().2];
+    let shift = shift.map(|s| -s);
+    let reslicer = ZoomShiftReslicer::new(dim, dim, [1.0, 1.0, 1.0], shift);
+
+    let order = 3;
+    let mut out = array_like(&data, data.raw_dim(), A::zero());
+    if prefilter && order > 1 {
+        let data = spline_filter(data, order);
+        Zip::indexed(&mut out).for_each(|idx, o| {
+            *o = A::from_f64(reslicer.interpolate(&data, idx)).unwrap();
+        });
+    } else {
+        Zip::indexed(&mut out).for_each(|idx, o| {
+            *o = A::from_f64(reslicer.interpolate(&data, idx)).unwrap();
+        });
+    }
+    out
+}
+
 /// Zoom an array.
 ///
 /// The array is zoomed using spline interpolation of the requested order.
 ///
 /// * `data` - A 3D array of the data to zoom
-/// * `zoom` - Number of values padded to the edges of each axis.
+/// * `zoom` - The zoom factor along the axes.
 /// * `prefilter` - Determines if the input array is prefiltered with spline_filter before
 ///   interpolation. The default is `true`, which will create a temporary `f64` array of filtered
 ///   values if `order > 1`. If setting this to `false`, the output will be slightly blurred if
@@ -47,7 +82,7 @@ where
     let order = 3;
     let mut out = array_like(&data, o_dim, A::zero());
     if prefilter && order > 1 {
-        let data = spline_filter(data, 3);
+        let data = spline_filter(data, order);
         Zip::indexed(&mut out).for_each(|idx, o| {
             *o = A::from_f64(reslicer.interpolate(&data, idx)).unwrap();
         });
