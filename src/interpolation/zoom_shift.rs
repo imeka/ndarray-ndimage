@@ -3,7 +3,7 @@ use std::ops::{Add, Sub};
 use ndarray::{Array, Array2, ArrayBase, Data, Ix3, Zip};
 use num_traits::{FromPrimitive, Num, ToPrimitive};
 
-use crate::{array_like, round_ties_even, spline_filter};
+use crate::{array_like, round_ties_even, spline_filter, BorderMode};
 
 /// Shift an array.
 ///
@@ -28,7 +28,7 @@ where
     let order = 3;
     let mut out = array_like(&data, data.raw_dim(), A::zero());
     if prefilter && order > 1 {
-        let data = spline_filter(data, order);
+        let data = spline_filter(data, order, BorderMode::Mirror);
         Zip::indexed(&mut out).for_each(|idx, o| {
             *o = A::from_f64(reslicer.interpolate(&data, idx)).unwrap();
         });
@@ -82,7 +82,7 @@ where
     let order = 3;
     let mut out = array_like(&data, o_dim, A::zero());
     if prefilter && order > 1 {
-        let data = spline_filter(data, order);
+        let data = spline_filter(data, order, BorderMode::Mirror);
         Zip::indexed(&mut out).for_each(|idx, o| {
             *o = A::from_f64(reslicer.interpolate(&data, idx)).unwrap();
         });
