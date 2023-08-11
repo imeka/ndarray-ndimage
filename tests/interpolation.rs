@@ -1,7 +1,7 @@
 use approx::assert_relative_eq;
 use ndarray::{arr1, arr2, arr3, Array, Array1, Axis};
 
-use ndarray_ndimage::{spline_filter, spline_filter1d, zoom};
+use ndarray_ndimage::{shift, spline_filter, spline_filter1d, zoom};
 
 #[test] // Results verified with the `spline_filter` function from SciPy. (v1.7.0)
 fn test_spline_filter_same() {
@@ -211,7 +211,63 @@ fn test_spline_filter1d() {
     );
 }
 
-#[test] // Results verified with the `spline_filter` function from SciPy. (v1.11.1)
+#[test] // Results verified with the `spline_filter` function from SciPy. (v1.8.1)
+fn test_shift() {
+    let data = (0..27).collect::<Array1<_>>().into_shape((3, 3, 3)).unwrap().mapv(f64::from);
+    assert_relative_eq!(
+        shift(&data, [0.7, 0.9, 1.1], true),
+        arr3(&[
+            [[8.7725, 7.6375, 8.4735], [6.2645, 5.1295, 5.9655], [9.6695, 8.5345, 9.3705]],
+            [[4.7945, 3.6595, 4.4955], [2.2865, 1.1515, 1.9875], [5.6915, 4.5565, 5.3925]],
+            [[16.6295, 15.4945, 16.3305], [14.1215, 12.9865, 13.8225], [17.5265, 16.3915, 17.2275]]
+        ]),
+        epsilon = 1e-5
+    );
+    assert_relative_eq!(
+        shift(&data, [0.0, -0.5, 1.75], true),
+        arr3(&[
+            [
+                [2.8515625, 1.5703125, 1.0234375],
+                [6.9765625, 5.6953125, 5.1484375],
+                [6.9765625, 5.6953125, 5.1484375]
+            ],
+            [
+                [11.8515625, 10.5703125, 10.0234375],
+                [15.9765625, 14.6953125, 14.1484375],
+                [15.9765625, 14.6953125, 14.1484375]
+            ],
+            [
+                [20.8515625, 19.5703125, 19.0234375],
+                [24.9765625, 23.6953125, 23.1484375],
+                [24.9765625, 23.6953125, 23.1484375]
+            ]
+        ]),
+        epsilon = 1e-5
+    );
+    assert_relative_eq!(
+        shift(&data, [-1.17, -0.38, -0.1], false),
+        arr3(&[
+            [
+                [12.236589, 12.99325567, 13.550589],
+                [14.943389, 15.70005567, 16.257389],
+                [15.479933, 16.23659967, 16.793933]
+            ],
+            [
+                [16.475967, 17.23263367, 17.789967],
+                [19.182767, 19.93943367, 20.496767],
+                [19.719311, 20.47597767, 21.033311]
+            ],
+            [
+                [9.206067, 9.96273367, 10.520067],
+                [11.912867, 12.66953367, 13.226867],
+                [12.449411, 13.20607767, 13.763411]
+            ]
+        ]),
+        epsilon = 1e-5
+    );
+}
+
+#[test] // Results verified with the `spline_filter` function from SciPy. (v1.8.1)
 fn test_zoom() {
     let data = (0..27).collect::<Array1<_>>().into_shape((3, 3, 3)).unwrap().mapv(f64::from);
     assert_relative_eq!(
