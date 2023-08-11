@@ -91,3 +91,41 @@ where
     let (width, height, depth) = mask.dim();
     (width - n, height - n, depth - n)
 }
+
+// TODO Use x.round_ties_even() when available on stable
+// https://github.com/rust-lang/rust/issues/96710
+fn round_ties_even(x: f64) -> f64 {
+    let i = x as i32;
+    let f = (x - i as f64).abs();
+    if f == 0.5 {
+        if i & 1 == 1 {
+            // -1.5, 1.5, 3.5, ...
+            (x.abs() + 0.5).copysign(x)
+        } else {
+            (x.abs() - 0.5).copysign(x)
+        }
+    } else {
+        x.round()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::round_ties_even;
+
+    #[test]
+    fn test_round_ties_even() {
+        assert_eq!(round_ties_even(-2.51), -3.0);
+        assert_eq!(round_ties_even(-2.5), -2.0);
+        assert_eq!(round_ties_even(-1.5), -2.0);
+        assert_eq!(round_ties_even(-0.5), -0.0);
+        assert_eq!(round_ties_even(-0.1), 0.0);
+        assert_eq!(round_ties_even(-0.0), 0.0);
+        assert_eq!(round_ties_even(0.0), 0.0);
+        assert_eq!(round_ties_even(0.1), 0.0);
+        assert_eq!(round_ties_even(0.5), 0.0);
+        assert_eq!(round_ties_even(1.5), 2.0);
+        assert_eq!(round_ties_even(2.5), 2.0);
+        assert_eq!(round_ties_even(2.51), 3.0);
+    }
+}
