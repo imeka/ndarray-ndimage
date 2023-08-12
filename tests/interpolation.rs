@@ -57,6 +57,24 @@ fn test_spline_filter_1d() {
     );
 }
 
+#[test] // Results verified with the `spline_filter` function from SciPy. (v1.8.0)
+fn test_spline_filter_modes() {
+    let arr = arr1(&[2.1, 8.4, 4.5, 7.0, 6.5, 9.2]);
+    let gt_mirror = arr1(&[-3.42870813, 13.15741627, 1.19904306, 9.04641148, 4.615311, 11.4923445]);
+    let gt_reflect =
+        arr1(&[0.07782003, 12.21089756, 1.47858971, 8.8747436, 5.0224359, 10.03551282]);
+
+    assert_relative_eq!(
+        spline_filter(&arr, 3, BorderMode::Constant(0.0)),
+        gt_mirror,
+        epsilon = 1e-5
+    );
+    assert_relative_eq!(spline_filter(&arr, 3, BorderMode::Nearest), gt_reflect, epsilon = 1e-5);
+    assert_relative_eq!(spline_filter(&arr, 3, BorderMode::Mirror), gt_mirror, epsilon = 1e-5);
+    assert_relative_eq!(spline_filter(&arr, 3, BorderMode::Reflect), gt_reflect, epsilon = 1e-5);
+    assert_relative_eq!(spline_filter(&arr, 3, BorderMode::Wrap), gt_mirror, epsilon = 1e-5);
+}
+
 #[test] // Results verified with the `spline_filter` function from SciPy. (v1.7.0)
 fn test_spline_filter_2d() {
     assert_relative_eq!(

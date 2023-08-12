@@ -168,7 +168,7 @@ fn init_causal_reflect(line: &mut ArrayViewMut1<f64>, pole: f64) {
     let l0 = line[0];
 
     line[0] += z_n * line[lm1];
-    for i in 1..lm1 {
+    for i in 1..line.len() {
         line[0] += z_i * (line[i] + z_n * line[lm1 - i]);
         z_i *= pole;
     }
