@@ -242,7 +242,7 @@ fn test_spline_filter1d() {
 fn test_shift() {
     let data = (0..27).collect::<Array1<_>>().into_shape((3, 3, 3)).unwrap().mapv(f64::from);
     assert_relative_eq!(
-        shift(&data, [0.7, 0.9, 1.1], true),
+        shift(&data, [0.7, 0.9, 1.1], BorderMode::Mirror, true),
         arr3(&[
             [[8.7725, 7.6375, 8.4735], [6.2645, 5.1295, 5.9655], [9.6695, 8.5345, 9.3705]],
             [[4.7945, 3.6595, 4.4955], [2.2865, 1.1515, 1.9875], [5.6915, 4.5565, 5.3925]],
@@ -251,7 +251,7 @@ fn test_shift() {
         epsilon = 1e-5
     );
     assert_relative_eq!(
-        shift(&data, [0.0, -0.5, 1.75], true),
+        shift(&data, [0.0, -0.5, 1.75], BorderMode::Mirror, true),
         arr3(&[
             [
                 [2.8515625, 1.5703125, 1.0234375],
@@ -272,7 +272,7 @@ fn test_shift() {
         epsilon = 1e-5
     );
     assert_relative_eq!(
-        shift(&data, [-1.17, -0.38, -0.1], false),
+        shift(&data, [-1.17, -0.38, -0.1], BorderMode::Mirror, false),
         arr3(&[
             [
                 [12.236589, 12.99325567, 13.550589],
@@ -298,7 +298,7 @@ fn test_shift() {
 fn test_zoom() {
     let data = (0..27).collect::<Array1<_>>().into_shape((3, 3, 3)).unwrap().mapv(f64::from);
     assert_relative_eq!(
-        zoom(&data, [1.5, 1.5, 1.5], true),
+        zoom(&data, [1.5, 1.5, 1.5], BorderMode::Mirror, true),
         arr3(&[
             [
                 [0.0, 0.51851852, 1.48148148, 2.0],
@@ -329,7 +329,7 @@ fn test_zoom() {
     );
 
     assert_relative_eq!(
-        zoom(&data, [0.75, 0.75, 2.0], true),
+        zoom(&data, [0.75, 0.75, 2.0], BorderMode::Mirror, true),
         arr3(&[
             [[0.0, 0.208, 0.704, 1.296, 1.792, 2.0], [6.0, 6.208, 6.704, 7.296, 7.792, 8.0]],
             [
@@ -340,7 +340,7 @@ fn test_zoom() {
         epsilon = 1e-5
     );
     assert_relative_eq!(
-        zoom(&data, [0.5, 0.65, 1.75], false),
+        zoom(&data, [0.5, 0.65, 1.75], BorderMode::Mirror, false),
         arr3(&[
             [
                 [4.33333333, 4.54166667, 5.0, 5.45833333, 5.66666667],
@@ -350,6 +350,27 @@ fn test_zoom() {
                 [16.33333333, 16.54166667, 17.0, 17.45833333, 17.66666667],
                 [20.33333333, 20.54166667, 21.0, 21.45833333, 21.66666667]
             ]
+        ]),
+        epsilon = 1e-5
+    );
+}
+
+#[test] // Results verified with the `spline_filter` function from SciPy. (v1.8.1)
+fn zs_modes() {
+    let data = (0..18).collect::<Array1<_>>().into_shape((2, 3, 3)).unwrap().mapv(f64::from);
+    assert_relative_eq!(
+        shift(&data, [1.1, 1.2, 1.3], BorderMode::Reflect, true),
+        arr3(&[
+            [
+                [1.39757254, 1.0427011, 1.81466135],
+                [0.68192475, 0.32711659, 1.09894886],
+                [3.25623966, 2.90121202, 3.67348695]
+            ],
+            [
+                [0.05309316, -0.30171616, 0.47012713],
+                [-0.66254825, -1.01729429, -0.24557899],
+                [1.91177461, 1.55680909, 2.32896706]
+            ],
         ]),
         epsilon = 1e-5
     );
