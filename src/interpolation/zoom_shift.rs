@@ -12,23 +12,29 @@ use crate::{array_like, round_ties_even, spline_filter, BorderMode};
 ///
 /// * `data` - A 3D array of the data to shift.
 /// * `shift` - The shift along the axes.
+/// * `mode` - The mode parameter determines how the input array is extended beyond its boundaries.
 /// * `prefilter` - Determines if the input array is prefiltered with spline_filter before
 ///   interpolation. The default is `true`, which will create a temporary `f64` array of filtered
 ///   values if `order > 1`. If setting this to `false`, the output will be slightly blurred if
 ///   `order > 1`, unless the input is prefiltered.
-pub fn shift<S, A>(data: &ArrayBase<S, Ix3>, shift: [f64; 3], prefilter: bool) -> Array<A, Ix3>
+pub fn shift<S, A>(
+    data: &ArrayBase<S, Ix3>,
+    shift: [f64; 3],
+    mode: BorderMode<A>,
+    prefilter: bool,
+) -> Array<A, Ix3>
 where
     S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + ToPrimitive,
 {
     let dim = [data.dim().0, data.dim().1, data.dim().2];
     let shift = shift.map(|s| -s);
-    let reslicer = ZoomShiftReslicer::new(dim, dim, [1.0, 1.0, 1.0], shift);
+    let reslicer = ZoomShiftReslicer::new(dim, dim, [1.0, 1.0, 1.0], shift, mode);
 
     let order = 3;
     let mut out = array_like(&data, data.raw_dim(), A::zero());
     if prefilter && order > 1 {
-        let data = spline_filter(data, order, BorderMode::Mirror);
+        let data = spline_filter(data, order, mode);
         Zip::indexed(&mut out).for_each(|idx, o| {
             *o = A::from_f64(reslicer.interpolate(&data, idx)).unwrap();
         });
@@ -46,11 +52,17 @@ where
 ///
 /// * `data` - A 3D array of the data to zoom
 /// * `zoom` - The zoom factor along the axes.
+/// * `mode` - The mode parameter determines how the input array is extended beyond its boundaries.
 /// * `prefilter` - Determines if the input array is prefiltered with spline_filter before
 ///   interpolation. The default is `true`, which will create a temporary `f64` array of filtered
 ///   values if `order > 1`. If setting this to `false`, the output will be slightly blurred if
 ///   `order > 1`, unless the input is prefiltered.
-pub fn zoom<S, A>(data: &ArrayBase<S, Ix3>, zoom: [f64; 3], prefilter: bool) -> Array<A, Ix3>
+pub fn zoom<S, A>(
+    data: &ArrayBase<S, Ix3>,
+    zoom: [f64; 3],
+    mode: BorderMode<A>,
+    prefilter: bool,
+) -> Array<A, Ix3>
 where
     S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + ToPrimitive,
@@ -77,12 +89,13 @@ where
         [o_dim[0], o_dim[1], o_dim[2]],
         zoom,
         [0.0, 0.0, 0.0],
+        mode,
     );
 
     let order = 3;
     let mut out = array_like(&data, o_dim, A::zero());
     if prefilter && order > 1 {
-        let data = spline_filter(data, order, BorderMode::Mirror);
+        let data = spline_filter(data, order, mode);
         Zip::indexed(&mut out).for_each(|idx, o| {
             *o = A::from_f64(reslicer.interpolate(&data, idx)).unwrap();
         });
@@ -106,12 +119,16 @@ struct ZoomShiftReslicer {
 
 impl ZoomShiftReslicer {
     /// Build all necessary data to call `interpolate`.
-    pub fn new(
+    pub fn new<A>(
         idim: [usize; 3],
         odim: [usize; 3],
         zooms: [f64; 3],
         shifts: [f64; 3],
-    ) -> ZoomShiftReslicer {
+        mode: BorderMode<A>,
+    ) -> ZoomShiftReslicer
+    where
+        A: Copy,
+    {
         let order = 3;
 
         let offsets = [vec![0; odim[0]], vec![0; odim[1]], vec![0; odim[2]]];
@@ -128,62 +145,37 @@ impl ZoomShiftReslicer {
         ];
 
         let mut reslicer = ZoomShiftReslicer { offsets, edge_offsets, is_edge_case, splvals };
-        reslicer.build_offsets(idim, odim, zooms, shifts, order);
-        reslicer.build_spline_vals(odim, zooms, shifts, order);
+        reslicer.build_arrays(idim, odim, zooms, shifts, order, mode);
         reslicer
     }
 
-    fn build_offsets(
+    fn build_arrays<A>(
         &mut self,
         idim: [usize; 3],
         odim: [usize; 3],
         zooms: [f64; 3],
         shifts: [f64; 3],
         order: usize,
-    ) {
+        mode: BorderMode<A>,
+    ) where
+        A: Copy,
+    {
         let iorder = order as isize;
         let idim = [idim[0] as isize, idim[1] as isize, idim[2] as isize];
-        let calculate_start = |axis: usize, from: usize| {
-            let mut to = (from as f64 + shifts[axis]) * zooms[axis];
-            if order & 1 == 0 {
-                to += 0.5;
-            }
-            to.floor() as isize - iorder / 2
-        };
 
         for axis in 0..3 {
+            let splvals = &mut self.splvals[axis];
             let offsets = &mut self.offsets[axis];
             let edge_offsets = &mut self.edge_offsets[axis];
             let is_edge_case = &mut self.is_edge_case[axis];
-            let len = idim[axis];
+            let len = idim[axis] as f64;
             for from in 0..odim[axis] {
-                let start = calculate_start(axis, from);
-                offsets[from] = start;
-
-                if start < 0 || start + iorder >= idim[axis] {
-                    is_edge_case[from] = true;
-                    for o in 0..=order {
-                        let idx = map_coordinates(len, start, o);
-                        edge_offsets[(from, o)] = idx - start;
-                    }
+                let mut to = (from as f64 + shifts[axis]) * zooms[axis];
+                to = map_coordinates(to, idim[axis] as f64, mode);
+                if order & 1 == 0 {
+                    to += 0.5;
                 }
-            }
-        }
-    }
 
-    fn build_spline_vals(
-        &mut self,
-        odim: [usize; 3],
-        zooms: [f64; 3],
-        shifts: [f64; 3],
-        order: usize,
-    ) {
-        for axis in 0..3 {
-            let zoom = zooms[axis];
-            let shift = shifts[axis];
-            let splvals = &mut self.splvals[axis];
-            for from in 0..odim[axis] {
-                let to = (from as f64 + shift) * zoom;
                 let x = to - to.floor();
                 let y = x;
                 let z = 1.0 - x;
@@ -192,6 +184,16 @@ impl ZoomShiftReslicer {
                 splvals[(from, 2)] = (z * z * (z - 2.0) * 3.0 + 4.0) / 6.0;
                 splvals[(from, order)] =
                     1.0 - (splvals[(from, 0)] + splvals[(from, 1)] + splvals[(from, 2)]);
+
+                let start = to.floor() as isize - iorder / 2;
+                offsets[from] = start;
+                if start < 0 || start + iorder >= idim[axis] {
+                    is_edge_case[from] = true;
+                    for o in 0..=order {
+                        let idx = map_coordinates((start + o as isize) as f64, len, mode) as isize;
+                        edge_offsets[(from, o)] = idx - start;
+                    }
+                }
             }
         }
     }
@@ -251,17 +253,37 @@ impl ZoomShiftReslicer {
     }
 }
 
-fn map_coordinates(len: isize, start: isize, o: usize) -> isize {
-    let mut idx = start + o as isize;
-    let s2 = 2 * len - 2;
-    if idx < 0 {
-        idx = s2 * (-idx / s2) + idx;
-        idx = if idx <= 1 - len { idx + s2 } else { -idx };
-    } else {
-        idx -= s2 * (idx / s2);
-        if idx >= len {
-            idx = s2 - idx;
+fn map_coordinates<A>(mut idx: f64, len: f64, mode: BorderMode<A>) -> f64 {
+    match mode {
+        BorderMode::Constant(_) => {}
+        BorderMode::Nearest => {}
+        BorderMode::Mirror => {
+            let s2 = 2.0 * len - 2.0;
+            if idx < 0.0 {
+                idx = s2 * (-idx / s2).floor() + idx;
+                idx = if idx <= 1.0 - len { idx + s2 } else { -idx };
+            } else {
+                idx -= s2 * (idx / s2).floor();
+                if idx >= len {
+                    idx = s2 - idx;
+                }
+            }
         }
-    }
+        BorderMode::Reflect => {
+            let s2 = 2.0 * len;
+            if idx < 0.0 {
+                if idx < -s2 {
+                    idx = s2 * (-idx / s2).floor() + idx;
+                }
+                idx = if idx < -len { idx + s2 } else { -idx - 1.0 };
+            } else {
+                idx -= s2 * (idx / s2).floor();
+                if idx >= len {
+                    idx = s2 - idx - 1.0;
+                }
+            }
+        }
+        BorderMode::Wrap => {}
+    };
     idx
 }
