@@ -160,6 +160,11 @@ impl ZoomShiftReslicer {
     ) where
         A: Copy,
     {
+        // Modes without an anlaytic prefilter or explicit prepadding use mirror extension
+        let spline_mode = match mode {
+            BorderMode::Constant(_) | BorderMode::Wrap => BorderMode::Mirror,
+            _ => mode,
+        };
         let iorder = order as isize;
         let idim = [idim[0] as isize, idim[1] as isize, idim[2] as isize];
 
@@ -190,7 +195,8 @@ impl ZoomShiftReslicer {
                 if start < 0 || start + iorder >= idim[axis] {
                     is_edge_case[from] = true;
                     for o in 0..=order {
-                        let idx = map_coordinates((start + o as isize) as f64, len, mode) as isize;
+                        let idx =
+                            map_coordinates((start + o as isize) as f64, len, spline_mode) as isize;
                         edge_offsets[(from, o)] = idx - start;
                     }
                 }
@@ -255,8 +261,12 @@ impl ZoomShiftReslicer {
 
 fn map_coordinates<A>(mut idx: f64, len: f64, mode: BorderMode<A>) -> f64 {
     match mode {
-        BorderMode::Constant(_) => {}
-        BorderMode::Nearest => {}
+        BorderMode::Constant(_) => {
+            unimplemented!()
+        }
+        BorderMode::Nearest => {
+            unimplemented!()
+        }
         BorderMode::Mirror => {
             let s2 = 2.0 * len - 2.0;
             if idx < 0.0 {
@@ -283,7 +293,14 @@ fn map_coordinates<A>(mut idx: f64, len: f64, mode: BorderMode<A>) -> f64 {
                 }
             }
         }
-        BorderMode::Wrap => {}
+        BorderMode::Wrap => {
+            let s = len - 1.0;
+            if idx < 0.0 {
+                idx += s * ((-idx / s).floor() + 1.0);
+            } else {
+                idx -= s * (idx / s).floor();
+            }
+        }
     };
     idx
 }
