@@ -355,9 +355,25 @@ fn test_zoom() {
     );
 }
 
-#[test] // Results verified with the `spline_filter` function from SciPy. (v1.8.1)
+#[test] // Results verified with the `spline_filter` function from SciPy. (v1.10.1)
 fn zs_modes() {
     let data = (0..18).collect::<Array1<_>>().into_shape((2, 3, 3)).unwrap().mapv(f64::from);
+    assert_relative_eq!(
+        shift(&data, [1.1, 1.2, 1.3], BorderMode::Nearest, true),
+        arr3(&[
+            [
+                [0.1988552, 0.10241835, 0.80532556],
+                [-0.04224935, -0.1386862, 0.56422101],
+                [2.39356508, 2.29712823, 3.00003544]
+            ],
+            [
+                [-0.4045963, -0.50103315, 0.20187406],
+                [-0.64570085, -0.7421377, -0.03923048],
+                [1.79011358, 1.69367673, 2.39658394]
+            ],
+        ]),
+        epsilon = 1e-5
+    );
     assert_relative_eq!(
         shift(&data, [1.1, 1.2, 1.3], BorderMode::Reflect, true),
         arr3(&[
