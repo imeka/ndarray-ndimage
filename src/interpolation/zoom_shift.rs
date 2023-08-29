@@ -3,7 +3,7 @@ use std::ops::{Add, Sub};
 use ndarray::{Array, Array2, ArrayBase, Data, Ix3, Zip};
 use num_traits::{FromPrimitive, Num, ToPrimitive};
 
-use crate::{array_like, round_ties_even, spline_filter, BorderMode};
+use crate::{array_like, pad, round_ties_even, spline_filter, BorderMode, PadMode};
 
 /// Shift an array.
 ///
@@ -25,25 +25,14 @@ pub fn shift<S, A>(
 ) -> Array<A, Ix3>
 where
     S: Data<Elem = A>,
-    A: Copy + Num + FromPrimitive + ToPrimitive,
+    A: Copy + Num + FromPrimitive + PartialOrd + ToPrimitive,
 {
     let dim = [data.dim().0, data.dim().1, data.dim().2];
     let shift = shift.map(|s| -s);
     let reslicer = ZoomShiftReslicer::new(dim, dim, [1.0, 1.0, 1.0], shift, mode);
 
-    let order = 3;
-    let mut out = array_like(&data, data.raw_dim(), A::zero());
-    if prefilter && order > 1 {
-        let data = spline_filter(data, order, mode);
-        Zip::indexed(&mut out).for_each(|idx, o| {
-            *o = A::from_f64(reslicer.interpolate(&data, idx)).unwrap();
-        });
-    } else {
-        Zip::indexed(&mut out).for_each(|idx, o| {
-            *o = A::from_f64(reslicer.interpolate(&data, idx)).unwrap();
-        });
-    }
-    out
+    let out = array_like(&data, data.raw_dim(), A::zero());
+    run_zoom_shift(data, mode, prefilter, &reslicer, out)
 }
 
 /// Zoom an array.
@@ -65,12 +54,14 @@ pub fn zoom<S, A>(
 ) -> Array<A, Ix3>
 where
     S: Data<Elem = A>,
-    A: Copy + Num + FromPrimitive + ToPrimitive,
+    A: Copy + Num + FromPrimitive + PartialOrd + ToPrimitive,
 {
+    let i_dim = [data.dim().0, data.dim().1, data.dim().2];
     let mut o_dim = data.raw_dim();
     for (ax, (&ax_len, zoom)) in data.shape().iter().zip(zoom.iter()).enumerate() {
         o_dim[ax] = round_ties_even(ax_len as f64 * zoom) as usize;
     }
+    let o_dim = [o_dim[0], o_dim[1], o_dim[2]];
 
     let mut nom = data.raw_dim();
     let mut div = o_dim.clone();
@@ -83,19 +74,32 @@ where
         nom[1] as f64 / div[1] as f64,
         nom[2] as f64 / div[2] as f64,
     ];
+    let reslicer = ZoomShiftReslicer::new(i_dim, o_dim, zoom, [0.0, 0.0, 0.0], mode);
 
-    let reslicer = ZoomShiftReslicer::new(
-        [data.dim().0, data.dim().1, data.dim().2],
-        [o_dim[0], o_dim[1], o_dim[2]],
-        zoom,
-        [0.0, 0.0, 0.0],
-        mode,
-    );
+    let out = array_like(&data, o_dim, A::zero());
+    run_zoom_shift(data, mode, prefilter, &reslicer, out)
+}
 
+fn run_zoom_shift<S, A>(
+    data: &ArrayBase<S, Ix3>,
+    mode: BorderMode<A>,
+    prefilter: bool,
+    reslicer: &ZoomShiftReslicer,
+    mut out: Array<A, Ix3>,
+) -> Array<A, Ix3>
+where
+    S: Data<Elem = A>,
+    A: Copy + Num + FromPrimitive + PartialOrd + ToPrimitive,
+{
     let order = 3;
-    let mut out = array_like(&data, o_dim, A::zero());
     if prefilter && order > 1 {
-        let data = spline_filter(data, order, mode);
+        let data = match mode {
+            BorderMode::Nearest => {
+                let padded = pad(data, &[[12, 12]], PadMode::Edge);
+                spline_filter(&padded, order, mode)
+            }
+            _ => spline_filter(data, order, mode),
+        };
         Zip::indexed(&mut out).for_each(|idx, o| {
             *o = A::from_f64(reslicer.interpolate(&data, idx)).unwrap();
         });
@@ -165,8 +169,17 @@ impl ZoomShiftReslicer {
             BorderMode::Constant(_) | BorderMode::Wrap => BorderMode::Mirror,
             _ => mode,
         };
+        let nb_prepad = match mode {
+            BorderMode::Nearest => 12,
+            _ => 0,
+        };
         let iorder = order as isize;
-        let idim = [idim[0] as isize, idim[1] as isize, idim[2] as isize];
+        let idim = [
+            idim[0] as isize + nb_prepad,
+            idim[1] as isize + nb_prepad,
+            idim[2] as isize + nb_prepad,
+        ];
+        let nb_prepad = nb_prepad as f64;
 
         for axis in 0..3 {
             let splvals = &mut self.splvals[axis];
@@ -175,8 +188,11 @@ impl ZoomShiftReslicer {
             let is_edge_case = &mut self.is_edge_case[axis];
             let len = idim[axis] as f64;
             for from in 0..odim[axis] {
-                let mut to = (from as f64 + shifts[axis]) * zooms[axis];
-                to = map_coordinates(to, idim[axis] as f64, mode);
+                let mut to = (from as f64 + shifts[axis]) * zooms[axis] + nb_prepad;
+                match mode {
+                    BorderMode::Nearest => {}
+                    _ => to = map_coordinates(to, idim[axis] as f64, mode),
+                };
                 if order & 1 == 0 {
                     to += 0.5;
                 }
@@ -265,7 +281,11 @@ fn map_coordinates<A>(mut idx: f64, len: f64, mode: BorderMode<A>) -> f64 {
             unimplemented!()
         }
         BorderMode::Nearest => {
-            unimplemented!()
+            if idx < 0.0 {
+                idx = 0.0;
+            } else {
+                idx = len - 1.0;
+            }
         }
         BorderMode::Mirror => {
             let s2 = 2.0 * len - 2.0;
