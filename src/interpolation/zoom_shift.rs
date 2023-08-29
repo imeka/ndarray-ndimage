@@ -119,6 +119,7 @@ struct ZoomShiftReslicer {
     edge_offsets: [Array2<isize>; 3],
     is_edge_case: [Vec<bool>; 3],
     splvals: [Array2<f64>; 3],
+    zeros: [Vec<bool>; 3],
 }
 
 impl ZoomShiftReslicer {
@@ -147,8 +148,10 @@ impl ZoomShiftReslicer {
             Array2::zeros((odim[1], order + 1)),
             Array2::zeros((odim[2], order + 1)),
         ];
+        let zeros = [vec![false; odim[0]], vec![false; odim[1]], vec![false; odim[2]]];
 
-        let mut reslicer = ZoomShiftReslicer { offsets, edge_offsets, is_edge_case, splvals };
+        let mut reslicer =
+            ZoomShiftReslicer { offsets, edge_offsets, is_edge_case, splvals, zeros };
         reslicer.build_arrays(idim, odim, zooms, shifts, order, mode);
         reslicer
     }
@@ -186,6 +189,7 @@ impl ZoomShiftReslicer {
             let offsets = &mut self.offsets[axis];
             let edge_offsets = &mut self.edge_offsets[axis];
             let is_edge_case = &mut self.is_edge_case[axis];
+            let zeros = &mut self.zeros[axis];
             let len = idim[axis] as f64;
             for from in 0..odim[axis] {
                 let mut to = (from as f64 + shifts[axis]) * zooms[axis] + nb_prepad;
@@ -193,28 +197,32 @@ impl ZoomShiftReslicer {
                     BorderMode::Nearest => {}
                     _ => to = map_coordinates(to, idim[axis] as f64, mode),
                 };
-                if order & 1 == 0 {
-                    to += 0.5;
-                }
-
-                let x = to - to.floor();
-                let y = x;
-                let z = 1.0 - x;
-                splvals[(from, 0)] = z * z * z / 6.0;
-                splvals[(from, 1)] = (y * y * (y - 2.0) * 3.0 + 4.0) / 6.0;
-                splvals[(from, 2)] = (z * z * (z - 2.0) * 3.0 + 4.0) / 6.0;
-                splvals[(from, order)] =
-                    1.0 - (splvals[(from, 0)] + splvals[(from, 1)] + splvals[(from, 2)]);
-
-                let start = to.floor() as isize - iorder / 2;
-                offsets[from] = start;
-                if start < 0 || start + iorder >= idim[axis] {
-                    is_edge_case[from] = true;
-                    for o in 0..=order {
-                        let idx =
-                            map_coordinates((start + o as isize) as f64, len, spline_mode) as isize;
-                        edge_offsets[(from, o)] = idx - start;
+                if to > -1.0 {
+                    if order & 1 == 0 {
+                        to += 0.5;
                     }
+
+                    let x = to - to.floor();
+                    let y = x;
+                    let z = 1.0 - x;
+                    splvals[(from, 0)] = z * z * z / 6.0;
+                    splvals[(from, 1)] = (y * y * (y - 2.0) * 3.0 + 4.0) / 6.0;
+                    splvals[(from, 2)] = (z * z * (z - 2.0) * 3.0 + 4.0) / 6.0;
+                    splvals[(from, order)] =
+                        1.0 - (splvals[(from, 0)] + splvals[(from, 1)] + splvals[(from, 2)]);
+
+                    let start = to.floor() as isize - iorder / 2;
+                    offsets[from] = start;
+                    if start < 0 || start + iorder >= idim[axis] {
+                        is_edge_case[from] = true;
+                        for o in 0..=order {
+                            let x = (start + o as isize) as f64;
+                            let idx = map_coordinates(x, len, spline_mode) as isize;
+                            edge_offsets[(from, o)] = idx - start;
+                        }
+                    }
+                } else {
+                    zeros[from] = true;
                 }
             }
         }
@@ -226,6 +234,10 @@ impl ZoomShiftReslicer {
         S: Data<Elem = A>,
         A: ToPrimitive + Add<Output = A> + Sub<Output = A> + Copy,
     {
+        if self.zeros[0][start.0] || self.zeros[1][start.1] || self.zeros[2][start.2] {
+            return 0.0;
+        }
+
         // Linear interpolation use a 4x4x4 block. This is simple enough, but we must adjust this
         // block when the `start` is near the edges.
         let valid_index = |original_offset, is_edge, start, d: usize, v| {
@@ -278,7 +290,9 @@ impl ZoomShiftReslicer {
 fn map_coordinates<A>(mut idx: f64, len: f64, mode: BorderMode<A>) -> f64 {
     match mode {
         BorderMode::Constant(_) => {
-            unimplemented!()
+            if idx < 0.0 || idx >= len {
+                idx = -1.0;
+            }
         }
         BorderMode::Nearest => {
             if idx < 0.0 {
