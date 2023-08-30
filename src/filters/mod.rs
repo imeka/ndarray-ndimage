@@ -15,15 +15,15 @@ pub enum BorderMode<T> {
     /// `[1, 2, 3] -> [T, T, 1, 2, 3, T, T]`
     Constant(T),
 
-    /// The input is extended by replicating the last pixel.
-    ///
-    /// `[1, 2, 3] -> [1, 1, 1, 2, 3, 3, 3]`
-    Nearest,
-
     /// The input is extended by reflecting about the center of the last pixel.
     ///
     /// `[1, 2, 3] -> [3, 2, 1, 2, 3, 2, 1]`
     Mirror,
+
+    /// The input is extended by replicating the last pixel.
+    ///
+    /// `[1, 2, 3] -> [1, 1, 1, 2, 3, 3, 3]`
+    Nearest,
 
     /// The input is extended by reflecting about the edge of the last pixel.
     ///

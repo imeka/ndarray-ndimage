@@ -356,13 +356,21 @@ fn test_zoom() {
 }
 
 #[test] // Results verified with the `spline_filter` function from SciPy. (v1.10.1)
-fn zs_modes() {
+fn shift_modes() {
     let data = (0..18).collect::<Array1<_>>().into_shape((2, 3, 3)).unwrap().mapv(f64::from);
     assert_relative_eq!(
         shift(&data, [0.1, 0.2, 0.3], BorderMode::Constant(0.0), true),
         arr3(&[
             [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0],],
             [[0.0, 0.0, 0.0], [0.0, 11.4235, 12.7385], [0.0, 15.1435, 16.4585]],
+        ]),
+        epsilon = 1e-5
+    );
+    assert_relative_eq!(
+        shift(&data, [1.1, -1.2, 1.3], BorderMode::Mirror, true),
+        arr3(&[
+            [[14.0725, 12.7575, 13.1995], [16.0165, 14.7015, 15.1435], [12.2965, 10.9815, 11.4235]],
+            [[5.5765, 4.2615, 4.7035], [7.5205, 6.2055, 6.6475], [3.8005, 2.4855, 2.9275]]
         ]),
         epsilon = 1e-5
     );
