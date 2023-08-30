@@ -11,7 +11,7 @@ It aims to:
 Currently available routines include:
 - Filters: convolve/1d, correlate/1d, gaussian_filter/1d, min/max_filter/1d, median_filter, prewitt, sobel
 - Fourier filters: none. Please use the excellent [`rustfft`] crate
-- Interpolation: spline_filter/1d
+- Interpolation: shift, spline_filter/1d, zoom
 - Measurements: label, label_histogram, largest_connected_components, most_frequent_label
 - Morphology: binary_closing, binary_dilation, binary_erosion, binary_opening. Works on all kernels (structuring elements).
 - Padding: Almost all modes. Work for all dimensions and types.
