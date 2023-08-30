@@ -297,7 +297,7 @@ fn map_coordinates<A>(mut idx: f64, len: f64, mode: BorderMode<A>) -> f64 {
         BorderMode::Nearest => {
             if idx < 0.0 {
                 idx = 0.0;
-            } else {
+            } else if idx >= len {
                 idx = len - 1.0;
             }
         }
@@ -306,7 +306,7 @@ fn map_coordinates<A>(mut idx: f64, len: f64, mode: BorderMode<A>) -> f64 {
             if idx < 0.0 {
                 idx = s2 * (-idx / s2).floor() + idx;
                 idx = if idx <= 1.0 - len { idx + s2 } else { -idx };
-            } else {
+            } else if idx >= len {
                 idx -= s2 * (idx / s2).floor();
                 if idx >= len {
                     idx = s2 - idx;
@@ -320,7 +320,7 @@ fn map_coordinates<A>(mut idx: f64, len: f64, mode: BorderMode<A>) -> f64 {
                     idx = s2 * (-idx / s2).floor() + idx;
                 }
                 idx = if idx < -len { idx + s2 } else { -idx - 1.0 };
-            } else {
+            } else if idx >= len {
                 idx -= s2 * (idx / s2).floor();
                 if idx >= len {
                     idx = s2 - idx - 1.0;
@@ -331,7 +331,7 @@ fn map_coordinates<A>(mut idx: f64, len: f64, mode: BorderMode<A>) -> f64 {
             let s = len - 1.0;
             if idx < 0.0 {
                 idx += s * ((-idx / s).floor() + 1.0);
-            } else {
+            } else if idx >= len {
                 idx -= s * (idx / s).floor();
             }
         }
