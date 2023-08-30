@@ -12,6 +12,7 @@ use crate::{array_like, pad, round_ties_even, spline_filter, BorderMode, PadMode
 ///
 /// * `data` - A 3D array of the data to shift.
 /// * `shift` - The shift along the axes.
+/// * `order` - The order of the spline.
 /// * `mode` - The mode parameter determines how the input array is extended beyond its boundaries.
 /// * `prefilter` - Determines if the input array is prefiltered with spline_filter before
 ///   interpolation. The default is `true`, which will create a temporary `f64` array of filtered
@@ -20,6 +21,7 @@ use crate::{array_like, pad, round_ties_even, spline_filter, BorderMode, PadMode
 pub fn shift<S, A>(
     data: &ArrayBase<S, Ix3>,
     shift: [f64; 3],
+    order: usize,
     mode: BorderMode<A>,
     prefilter: bool,
 ) -> Array<A, Ix3>
@@ -29,7 +31,7 @@ where
 {
     let dim = [data.dim().0, data.dim().1, data.dim().2];
     let shift = shift.map(|s| -s);
-    let reslicer = ZoomShiftReslicer::new(dim, dim, [1.0, 1.0, 1.0], shift, mode);
+    let reslicer = ZoomShiftReslicer::new(dim, dim, [1.0, 1.0, 1.0], shift, order, mode);
 
     let out = array_like(&data, data.raw_dim(), A::zero());
     run_zoom_shift(data, mode, prefilter, &reslicer, out)
@@ -41,6 +43,7 @@ where
 ///
 /// * `data` - A 3D array of the data to zoom
 /// * `zoom` - The zoom factor along the axes.
+/// * `order` - The order of the spline.
 /// * `mode` - The mode parameter determines how the input array is extended beyond its boundaries.
 /// * `prefilter` - Determines if the input array is prefiltered with spline_filter before
 ///   interpolation. The default is `true`, which will create a temporary `f64` array of filtered
@@ -49,6 +52,7 @@ where
 pub fn zoom<S, A>(
     data: &ArrayBase<S, Ix3>,
     zoom: [f64; 3],
+    order: usize,
     mode: BorderMode<A>,
     prefilter: bool,
 ) -> Array<A, Ix3>
@@ -74,7 +78,7 @@ where
         nom[1] as f64 / div[1] as f64,
         nom[2] as f64 / div[2] as f64,
     ];
-    let reslicer = ZoomShiftReslicer::new(i_dim, o_dim, zoom, [0.0, 0.0, 0.0], mode);
+    let reslicer = ZoomShiftReslicer::new(i_dim, o_dim, zoom, [0.0, 0.0, 0.0], order, mode);
 
     let out = array_like(&data, o_dim, A::zero());
     run_zoom_shift(data, mode, prefilter, &reslicer, out)
@@ -129,13 +133,12 @@ impl ZoomShiftReslicer {
         odim: [usize; 3],
         zooms: [f64; 3],
         shifts: [f64; 3],
+        order: usize,
         mode: BorderMode<A>,
     ) -> ZoomShiftReslicer
     where
         A: Copy,
     {
-        let order = 3;
-
         let offsets = [vec![0; odim[0]], vec![0; odim[1]], vec![0; odim[2]]];
         let edge_offsets = [
             Array2::zeros((odim[0], order + 1)),
@@ -202,14 +205,7 @@ impl ZoomShiftReslicer {
                         to += 0.5;
                     }
 
-                    let x = to - to.floor();
-                    let y = x;
-                    let z = 1.0 - x;
-                    splvals[(from, 0)] = z * z * z / 6.0;
-                    splvals[(from, 1)] = (y * y * (y - 2.0) * 3.0 + 4.0) / 6.0;
-                    splvals[(from, 2)] = (z * z * (z - 2.0) * 3.0 + 4.0) / 6.0;
-                    splvals[(from, order)] =
-                        1.0 - (splvals[(from, 0)] + splvals[(from, 1)] + splvals[(from, 2)]);
+                    build_splines(from, to, splvals, order);
 
                     let start = to.floor() as isize - iorder / 2;
                     offsets[from] = start;
@@ -285,6 +281,16 @@ impl ZoomShiftReslicer {
         }
         t
     }
+}
+
+fn build_splines(from: usize, to: f64, spline: &mut Array2<f64>, order: usize) {
+    let x = to - to.floor();
+    let y = x;
+    let z = 1.0 - x;
+    spline[(from, 0)] = z * z * z / 6.0;
+    spline[(from, 1)] = (y * y * (y - 2.0) * 3.0 + 4.0) / 6.0;
+    spline[(from, 2)] = (z * z * (z - 2.0) * 3.0 + 4.0) / 6.0;
+    spline[(from, order)] = 1.0 - (spline[(from, 0)] + spline[(from, 1)] + spline[(from, 2)]);
 }
 
 fn map_coordinates<A>(mut idx: f64, len: f64, mode: BorderMode<A>) -> f64 {
