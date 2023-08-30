@@ -178,9 +178,9 @@ impl ZoomShiftReslicer {
         };
         let iorder = order as isize;
         let idim = [
-            idim[0] as isize + nb_prepad,
-            idim[1] as isize + nb_prepad,
-            idim[2] as isize + nb_prepad,
+            idim[0] as isize + 2 * nb_prepad,
+            idim[1] as isize + 2 * nb_prepad,
+            idim[2] as isize + 2 * nb_prepad,
         ];
         let nb_prepad = nb_prepad as f64;
 
