@@ -242,7 +242,7 @@ fn test_spline_filter1d() {
 fn test_shift() {
     let data = (0..27).collect::<Array1<_>>().into_shape((3, 3, 3)).unwrap().mapv(f64::from);
     assert_relative_eq!(
-        shift(&data, [0.7, 0.9, 1.1], 3, BorderMode::Mirror, true),
+        shift(&data, [0.7, 0.9, 1.1], BorderMode::Mirror, true),
         arr3(&[
             [[8.7725, 7.6375, 8.4735], [6.2645, 5.1295, 5.9655], [9.6695, 8.5345, 9.3705]],
             [[4.7945, 3.6595, 4.4955], [2.2865, 1.1515, 1.9875], [5.6915, 4.5565, 5.3925]],
@@ -251,7 +251,7 @@ fn test_shift() {
         epsilon = 1e-5
     );
     assert_relative_eq!(
-        shift(&data, [0.0, -0.5, 1.75], 3, BorderMode::Mirror, true),
+        shift(&data, [0.0, -0.5, 1.75], BorderMode::Mirror, true),
         arr3(&[
             [
                 [2.8515625, 1.5703125, 1.0234375],
@@ -272,7 +272,7 @@ fn test_shift() {
         epsilon = 1e-5
     );
     assert_relative_eq!(
-        shift(&data, [-1.17, -0.38, -0.1], 3, BorderMode::Mirror, false),
+        shift(&data, [-1.17, -0.38, -0.1], BorderMode::Mirror, false),
         arr3(&[
             [
                 [12.236589, 12.99325567, 13.550589],
@@ -298,7 +298,7 @@ fn test_shift() {
 fn shift_modes() {
     let data = (0..18).collect::<Array1<_>>().into_shape((2, 3, 3)).unwrap().mapv(f64::from);
     assert_relative_eq!(
-        shift(&data, [0.1, 0.2, 0.3], 3, BorderMode::Constant(0.0), true),
+        shift(&data, [0.1, 0.2, 0.3], BorderMode::Constant(0.0), true),
         arr3(&[
             [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0],],
             [[0.0, 0.0, 0.0], [0.0, 11.4235, 12.7385], [0.0, 15.1435, 16.4585]],
@@ -306,7 +306,7 @@ fn shift_modes() {
         epsilon = 1e-5
     );
     assert_relative_eq!(
-        shift(&data, [1.1, -1.2, 1.3], 3, BorderMode::Mirror, true),
+        shift(&data, [1.1, -1.2, 1.3], BorderMode::Mirror, true),
         arr3(&[
             [[14.0725, 12.7575, 13.1995], [16.0165, 14.7015, 15.1435], [12.2965, 10.9815, 11.4235]],
             [[5.5765, 4.2615, 4.7035], [7.5205, 6.2055, 6.6475], [3.8005, 2.4855, 2.9275]]
@@ -314,7 +314,7 @@ fn shift_modes() {
         epsilon = 1e-5
     );
     assert_relative_eq!(
-        shift(&data, [1.1, 1.2, 1.3], 3, BorderMode::Nearest, true),
+        shift(&data, [1.1, 1.2, 1.3], BorderMode::Nearest, true),
         arr3(&[
             [
                 [0.1988552, 0.10241835, 0.80532556],
@@ -330,7 +330,7 @@ fn shift_modes() {
         epsilon = 1e-5
     );
     assert_relative_eq!(
-        shift(&data, [1.1, 1.2, 1.3], 3, BorderMode::Reflect, true),
+        shift(&data, [1.1, 1.2, 1.3], BorderMode::Reflect, true),
         arr3(&[
             [
                 [1.39757254, 1.0427011, 1.81466135],
@@ -346,7 +346,7 @@ fn shift_modes() {
         epsilon = 1e-5
     );
     assert_relative_eq!(
-        shift(&data, [1.1, 1.2, 1.3], 3, BorderMode::Wrap, true),
+        shift(&data, [1.1, 1.2, 1.3], BorderMode::Wrap, true),
         arr3(&[
             [[11.4235, 12.7385, 11.4235], [15.1435, 16.4585, 15.1435], [11.4235, 12.7385, 11.4235]],
             [[11.4235, 12.7385, 11.4235], [15.1435, 16.4585, 15.1435], [11.4235, 12.7385, 11.4235]]
@@ -359,7 +359,7 @@ fn shift_modes() {
 fn test_zoom() {
     let data = (0..27).collect::<Array1<_>>().into_shape((3, 3, 3)).unwrap().mapv(f64::from);
     assert_relative_eq!(
-        zoom(&data, [1.5, 1.5, 1.5], 3, BorderMode::Mirror, true),
+        zoom(&data, [1.5, 1.5, 1.5], BorderMode::Mirror, true),
         arr3(&[
             [
                 [0.0, 0.51851852, 1.48148148, 2.0],
@@ -390,7 +390,7 @@ fn test_zoom() {
     );
 
     assert_relative_eq!(
-        zoom(&data, [0.75, 0.75, 2.0], 3, BorderMode::Mirror, true),
+        zoom(&data, [0.75, 0.75, 2.0], BorderMode::Mirror, true),
         arr3(&[
             [[0.0, 0.208, 0.704, 1.296, 1.792, 2.0], [6.0, 6.208, 6.704, 7.296, 7.792, 8.0]],
             [
@@ -401,7 +401,7 @@ fn test_zoom() {
         epsilon = 1e-5
     );
     assert_relative_eq!(
-        zoom(&data, [0.5, 0.65, 1.75], 3, BorderMode::Mirror, false),
+        zoom(&data, [0.5, 0.65, 1.75], BorderMode::Mirror, false),
         arr3(&[
             [
                 [4.33333333, 4.54166667, 5.0, 5.45833333, 5.66666667],
@@ -434,10 +434,10 @@ fn zoom_modes() {
             [15.0, 15.51851852, 16.48148148, 17.0],
         ],
     ]);
-    assert_relative_eq!(zoom(&data, zooms, 3, BorderMode::Constant(0.0), true), gt, epsilon = 1e-5);
-    assert_relative_eq!(zoom(&data, zooms, 3, BorderMode::Mirror, true), gt, epsilon = 1e-5);
+    assert_relative_eq!(zoom(&data, zooms, BorderMode::Constant(0.0), true), gt, epsilon = 1e-5);
+    assert_relative_eq!(zoom(&data, zooms, BorderMode::Mirror, true), gt, epsilon = 1e-5);
     assert_relative_eq!(
-        zoom(&data, zooms, 3, BorderMode::Nearest, true),
+        zoom(&data, zooms, BorderMode::Nearest, true),
         arr3(&[
             [
                 [0.0, 0.58727431, 1.41272569, 2.0],
@@ -455,7 +455,7 @@ fn zoom_modes() {
         epsilon = 1e-5
     );
     assert_relative_eq!(
-        zoom(&data, zooms, 3, BorderMode::Reflect, true),
+        zoom(&data, zooms, BorderMode::Reflect, true),
         arr3(&[
             [
                 [0.00393929, 0.61167589, 1.39720607, 2.00481805],
@@ -473,7 +473,7 @@ fn zoom_modes() {
         epsilon = 1e-5
     );
     assert_relative_eq!(
-        zoom(&data, zooms, 3, BorderMode::Wrap, true),
+        zoom(&data, zooms, BorderMode::Wrap, true),
         arr3(&[
             [
                 [0.0, 0.51851852, 1.48148148, 2.0],

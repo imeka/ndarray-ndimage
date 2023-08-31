@@ -12,7 +12,6 @@ use crate::{array_like, pad, round_ties_even, spline_filter, BorderMode, PadMode
 ///
 /// * `data` - A 3D array of the data to shift.
 /// * `shift` - The shift along the axes.
-/// * `order` - The order of the spline.
 /// * `mode` - The mode parameter determines how the input array is extended beyond its boundaries.
 /// * `prefilter` - Determines if the input array is prefiltered with spline_filter before
 ///   interpolation. The default is `true`, which will create a temporary `f64` array of filtered
@@ -21,7 +20,6 @@ use crate::{array_like, pad, round_ties_even, spline_filter, BorderMode, PadMode
 pub fn shift<S, A>(
     data: &ArrayBase<S, Ix3>,
     shift: [f64; 3],
-    order: usize,
     mode: BorderMode<A>,
     prefilter: bool,
 ) -> Array<A, Ix3>
@@ -29,12 +27,13 @@ where
     S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd + ToPrimitive,
 {
+    let order = 3;
     let dim = [data.dim().0, data.dim().1, data.dim().2];
     let shift = shift.map(|s| -s);
     let reslicer = ZoomShiftReslicer::new(dim, dim, [1.0, 1.0, 1.0], shift, order, mode);
 
     let out = array_like(&data, data.raw_dim(), A::zero());
-    run_zoom_shift(data, mode, prefilter, &reslicer, out)
+    run_zoom_shift(data, order, mode, prefilter, &reslicer, out)
 }
 
 /// Zoom an array.
@@ -43,7 +42,6 @@ where
 ///
 /// * `data` - A 3D array of the data to zoom
 /// * `zoom` - The zoom factor along the axes.
-/// * `order` - The order of the spline.
 /// * `mode` - The mode parameter determines how the input array is extended beyond its boundaries.
 /// * `prefilter` - Determines if the input array is prefiltered with spline_filter before
 ///   interpolation. The default is `true`, which will create a temporary `f64` array of filtered
@@ -52,7 +50,6 @@ where
 pub fn zoom<S, A>(
     data: &ArrayBase<S, Ix3>,
     zoom: [f64; 3],
-    order: usize,
     mode: BorderMode<A>,
     prefilter: bool,
 ) -> Array<A, Ix3>
@@ -60,6 +57,7 @@ where
     S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd + ToPrimitive,
 {
+    let order = 3;
     let i_dim = [data.dim().0, data.dim().1, data.dim().2];
     let mut o_dim = data.raw_dim();
     for (ax, (&ax_len, zoom)) in data.shape().iter().zip(zoom.iter()).enumerate() {
@@ -81,11 +79,12 @@ where
     let reslicer = ZoomShiftReslicer::new(i_dim, o_dim, zoom, [0.0, 0.0, 0.0], order, mode);
 
     let out = array_like(&data, o_dim, A::zero());
-    run_zoom_shift(data, mode, prefilter, &reslicer, out)
+    run_zoom_shift(data, order, mode, prefilter, &reslicer, out)
 }
 
 fn run_zoom_shift<S, A>(
     data: &ArrayBase<S, Ix3>,
+    order: usize,
     mode: BorderMode<A>,
     prefilter: bool,
     reslicer: &ZoomShiftReslicer,
@@ -95,7 +94,6 @@ where
     S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd + ToPrimitive,
 {
-    let order = 3;
     if prefilter && order > 1 {
         let data = match mode {
             BorderMode::Nearest => {
@@ -137,20 +135,23 @@ impl ZoomShiftReslicer {
         mode: BorderMode<A>,
     ) -> ZoomShiftReslicer
     where
-        A: Copy,
+        A: Copy + ToPrimitive,
     {
         let offsets = [vec![0; odim[0]], vec![0; odim[1]], vec![0; odim[2]]];
-        let edge_offsets = [
-            Array2::zeros((odim[0], order + 1)),
-            Array2::zeros((odim[1], order + 1)),
-            Array2::zeros((odim[2], order + 1)),
-        ];
         let is_edge_case = [vec![false; odim[0]], vec![false; odim[1]], vec![false; odim[2]]];
-        let splvals = [
-            Array2::zeros((odim[0], order + 1)),
-            Array2::zeros((odim[1], order + 1)),
-            Array2::zeros((odim[2], order + 1)),
-        ];
+        let (edge_offsets, splvals) = if order > 0 {
+            let dim0 = (odim[0], order + 1);
+            let dim1 = (odim[1], order + 1);
+            let dim2 = (odim[2], order + 1);
+            let e = [Array2::zeros(dim0), Array2::zeros(dim1), Array2::zeros(dim2)];
+            let s = [Array2::zeros(dim0), Array2::zeros(dim1), Array2::zeros(dim2)];
+            (e, s)
+        } else {
+            // We do not need to allocate when order == 0
+            let e = [Array2::zeros((0, 0)), Array2::zeros((0, 0)), Array2::zeros((0, 0))];
+            let s = [Array2::zeros((0, 0)), Array2::zeros((0, 0)), Array2::zeros((0, 0))];
+            (e, s)
+        };
         let zeros = [vec![false; odim[0]], vec![false; odim[1]], vec![false; odim[2]]];
 
         let mut reslicer =
@@ -259,8 +260,8 @@ impl ZoomShiftReslicer {
             valid_index(original_offset, is_edge, start.1, 1, 3),
         ];
 
-        let is_edge = self.is_edge_case[2][start.2];
         let original_offset = self.offsets[2][start.2];
+        let is_edge = self.is_edge_case[2][start.2];
         let zs = [
             valid_index(original_offset, is_edge, start.2, 2, 0),
             valid_index(original_offset, is_edge, start.2, 2, 1),
