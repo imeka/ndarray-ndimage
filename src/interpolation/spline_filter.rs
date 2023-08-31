@@ -1,6 +1,8 @@
 use ndarray::{arr1, s, Array, Array1, ArrayBase, ArrayViewMut1, Axis, Data, Dimension};
 use num_traits::ToPrimitive;
 
+use crate::BorderMode;
+
 /// Multidimensional spline filter.
 ///
 /// The multidimensional filter is implemented as a sequence of one-dimensional spline filters. The
@@ -8,12 +10,17 @@ use num_traits::ToPrimitive;
 ///
 /// * `data` - The input N-D data.
 /// * `order` - The order of the spline.
+/// * `mode` - The mode parameter determines how the input array is extended beyond its boundaries.
 ///
 /// **Panics** if `order` isn't in the range \[2, 5\].
-pub fn spline_filter<S, A, D>(data: &ArrayBase<S, D>, order: usize) -> Array<f64, D>
+pub fn spline_filter<S, A, D>(
+    data: &ArrayBase<S, D>,
+    order: usize,
+    mode: BorderMode<A>,
+) -> Array<f64, D>
 where
     S: Data<Elem = A>,
-    A: ToPrimitive,
+    A: Copy + ToPrimitive,
     D: Dimension,
 {
     let mut data = data.map(|v| v.to_f64().unwrap());
@@ -24,7 +31,7 @@ where
     let poles = get_filter_poles(order);
     let gain = filter_gain(&poles);
     for axis in 0..data.ndim() {
-        _spline_filter1d(&mut data, Axis(axis), &poles, gain);
+        _spline_filter1d(&mut data, mode, Axis(axis), &poles, gain);
     }
     data
 }
@@ -36,13 +43,19 @@ where
 ///
 /// * `data` - The input N-D data.
 /// * `order` - The order of the spline.
+/// * `mode` - The mode parameter determines how the input array is extended beyond its boundaries.
 /// * `axis` - The axis along which the spline filter is applied.
 ///
 /// **Panics** if `order` isn't in the range \[0, 5\].
-pub fn spline_filter1d<S, A, D>(data: &ArrayBase<S, D>, order: usize, axis: Axis) -> Array<f64, D>
+pub fn spline_filter1d<S, A, D>(
+    data: &ArrayBase<S, D>,
+    order: usize,
+    mode: BorderMode<A>,
+    axis: Axis,
+) -> Array<f64, D>
 where
     S: Data<Elem = A>,
-    A: ToPrimitive,
+    A: Copy + ToPrimitive,
     D: Dimension,
 {
     let mut data = data.map(|v| v.to_f64().unwrap());
@@ -53,12 +66,18 @@ where
     let poles = get_filter_poles(order);
     let gain = filter_gain(&poles);
 
-    _spline_filter1d(&mut data, axis, &poles, gain);
+    _spline_filter1d(&mut data, mode, axis, &poles, gain);
     data
 }
 
-fn _spline_filter1d<D>(data: &mut Array<f64, D>, axis: Axis, poles: &Array1<f64>, gain: f64)
-where
+fn _spline_filter1d<A, D>(
+    data: &mut Array<f64, D>,
+    mode: BorderMode<A>,
+    axis: Axis,
+    poles: &Array1<f64>,
+    gain: f64,
+) where
+    A: Copy,
     D: Dimension,
 {
     for mut line in data.lanes_mut(axis) {
@@ -66,12 +85,12 @@ where
             *val *= gain;
         }
         for &pole in poles {
-            set_initial_causal_coefficient(&mut line, pole);
+            init_causal_coefficient(&mut line, pole, mode);
             for i in 1..line.len() {
                 line[i] += pole * line[i - 1];
             }
 
-            set_initial_anticausal_coefficient(&mut line, pole);
+            init_anticausal_coefficient(&mut line, pole, mode);
             for i in (0..line.len() - 1).rev() {
                 line[i] = pole * (line[i + 1] - line[i]);
             }
@@ -104,8 +123,19 @@ fn filter_gain(poles: &Array1<f64>) -> f64 {
     gain
 }
 
-fn set_initial_causal_coefficient(line: &mut ArrayViewMut1<f64>, pole: f64) {
+fn init_causal_coefficient<A>(line: &mut ArrayViewMut1<f64>, pole: f64, mode: BorderMode<A>) {
+    match mode {
+        BorderMode::Constant(_) | BorderMode::Mirror | BorderMode::Wrap => {
+            init_causal_mirror(line, pole)
+        }
+        BorderMode::Nearest | BorderMode::Reflect => init_causal_reflect(line, pole),
+    }
+}
+
+fn init_causal_mirror(line: &mut ArrayViewMut1<f64>, pole: f64) {
     let mut z_i = pole;
+
+    // TODO I can't find this code anywhere in SciPy. It should be removed.
     let tolerance: f64 = 1e-15;
     let last_coefficient = (tolerance.ln().ceil() / pole.abs().ln()) as usize;
     if last_coefficient < line.len() {
@@ -131,7 +161,36 @@ fn set_initial_causal_coefficient(line: &mut ArrayViewMut1<f64>, pole: f64) {
     }
 }
 
-fn set_initial_anticausal_coefficient(line: &mut ArrayViewMut1<f64>, pole: f64) {
+fn init_causal_reflect(line: &mut ArrayViewMut1<f64>, pole: f64) {
+    let lm1 = line.len() - 1;
+    let mut z_i = pole;
+    let z_n = pole.powi(line.len() as i32);
+    let l0 = line[0];
+
+    line[0] += z_n * line[lm1];
+    for i in 1..line.len() {
+        line[0] += z_i * (line[i] + z_n * line[lm1 - i]);
+        z_i *= pole;
+    }
+    line[0] *= pole / (1.0 - z_n * z_n);
+    line[0] += l0;
+}
+
+fn init_anticausal_coefficient<A>(line: &mut ArrayViewMut1<f64>, pole: f64, mode: BorderMode<A>) {
+    match mode {
+        BorderMode::Constant(_) | BorderMode::Mirror | BorderMode::Wrap => {
+            init_anticausal_mirror(line, pole)
+        }
+        BorderMode::Nearest | BorderMode::Reflect => init_anticausal_reflect(line, pole),
+    }
+}
+
+fn init_anticausal_mirror(line: &mut ArrayViewMut1<f64>, pole: f64) {
     let lm1 = line.len() - 1;
     line[lm1] = pole / (pole * pole - 1.0) * (pole * line[line.len() - 2] + line[lm1]);
+}
+
+fn init_anticausal_reflect(line: &mut ArrayViewMut1<f64>, pole: f64) {
+    let lm1 = line.len() - 1;
+    line[lm1] *= pole / (pole - 1.0);
 }
