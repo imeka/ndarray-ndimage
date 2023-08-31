@@ -298,10 +298,10 @@ fn test_shift() {
 fn shift_modes() {
     let data = (0..18).collect::<Array1<_>>().into_shape((2, 3, 3)).unwrap().mapv(f64::from);
     assert_relative_eq!(
-        shift(&data, [0.1, 0.2, 0.3], BorderMode::Constant(0.0), true),
+        shift(&data, [0.1, 0.2, 0.3], BorderMode::Constant(1.0), true),
         arr3(&[
-            [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0],],
-            [[0.0, 0.0, 0.0], [0.0, 11.4235, 12.7385], [0.0, 15.1435, 16.4585]],
+            [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0],],
+            [[1.0, 1.0, 1.0], [1.0, 11.4235, 12.7385], [1.0, 15.1435, 16.4585]],
         ]),
         epsilon = 1e-5
     );

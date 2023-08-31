@@ -122,6 +122,7 @@ struct ZoomShiftReslicer {
     is_edge_case: [Vec<bool>; 3],
     splvals: [Array2<f64>; 3],
     zeros: [Vec<bool>; 3],
+    cval: f64,
 }
 
 impl ZoomShiftReslicer {
@@ -153,9 +154,13 @@ impl ZoomShiftReslicer {
             (e, s)
         };
         let zeros = [vec![false; odim[0]], vec![false; odim[1]], vec![false; odim[2]]];
+        let cval = match mode {
+            BorderMode::Constant(cval) => cval.to_f64().unwrap(),
+            _ => 0.0,
+        };
 
         let mut reslicer =
-            ZoomShiftReslicer { offsets, edge_offsets, is_edge_case, splvals, zeros };
+            ZoomShiftReslicer { offsets, edge_offsets, is_edge_case, splvals, zeros, cval };
         reslicer.build_arrays(idim, odim, zooms, shifts, order, mode);
         reslicer
     }
@@ -232,7 +237,7 @@ impl ZoomShiftReslicer {
         A: ToPrimitive + Add<Output = A> + Sub<Output = A> + Copy,
     {
         if self.zeros[0][start.0] || self.zeros[1][start.1] || self.zeros[2][start.2] {
-            return 0.0;
+            return self.cval;
         }
 
         // Linear interpolation use a 4x4x4 block. This is simple enough, but we must adjust this
