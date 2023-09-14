@@ -19,6 +19,7 @@ pub use filters::{
         maximum_filter, maximum_filter1d, maximum_filter1d_to, minimum_filter, minimum_filter1d,
         minimum_filter1d_to,
     },
+    uniform::{uniform_filter, uniform_filter1d},
     BorderMode,
 };
 pub use interpolation::{shift, spline_filter, spline_filter1d, zoom};

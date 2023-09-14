@@ -5,6 +5,7 @@ pub mod gaussian;
 pub mod median;
 pub mod min_max;
 pub mod symmetry;
+pub mod uniform;
 
 // TODO We might want to offer all NumPy mode (use PadMode instead)
 /// Method that will be used to determines how the input array is extended beyond its boundaries.

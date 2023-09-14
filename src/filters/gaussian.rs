@@ -36,7 +36,7 @@ where
     let half = weights.len() / 2;
 
     // We need 2 buffers because
-    // * We're reading neignbors so we can't read and write on the same location.
+    // * We're reading neighbours so we can't read and write on the same location.
     // * The process is applied for each axis on the result of the previous process.
     // * It's uglier (using &mut) but much faster than allocating for each axis.
     let mut data = data.to_owned();

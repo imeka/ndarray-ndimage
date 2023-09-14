@@ -6,10 +6,10 @@ This crate provides multidimensional image processing for [`ndarray`]'s `ArrayBa
 It aims to:
 - be a Rust replacement for [`scipy.ndimage`] with some other tools like [`numpy.pad`] and anything else relevant to image processing. We do not want all options and arguments offered by `scipy.ndimage` because some of them are incompatible with Rust. We hope to offer the most used ones.
 - be faster or as fast as `scipy.ndimage`. Most of it is cythonized so it's not as easy as it seems. In fact, I'm usually unable to be faster than SciPy but it does happen on some functions.
-- avoid using `unsafe`. This is not an unbreakable rule. Its usage will be evaluated and dicussed in the pull requests.
+- avoid using `unsafe`. This is not an unbreakable rule. Its usage will be evaluated and discussed in the pull requests.
 
 Currently available routines include:
-- Filters: convolve/1d, correlate/1d, gaussian_filter/1d, min/max_filter/1d, median_filter, prewitt, sobel
+- Filters: convolve/1d, correlate/1d, gaussian_filter/1d, min/max_filter/1d, uniform_filter/1d, median_filter, prewitt, sobel
 - Fourier filters: none. Please use the excellent [`rustfft`] crate
 - Interpolation: shift, spline_filter/1d, zoom
 - Measurements: label, label_histogram, largest_connected_components, most_frequent_label
@@ -29,7 +29,7 @@ Using with Cargo
 ```toml
 [dependencies]
 ndarray = "0.15"
-ndarray-ndimage = "0.2"
+ndarray-ndimage = "0.4"
 ```
 
 Contributing
