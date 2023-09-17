@@ -1,6 +1,6 @@
 use std::ops::{Add, Sub};
 
-use ndarray::{Array, Array2, ArrayBase, Data, Ix3, Zip};
+use ndarray::{s, Array, Array2, ArrayBase, Data, Ix3, Zip};
 use num_traits::{FromPrimitive, Num, ToPrimitive};
 
 use crate::{array_like, pad, round_ties_even, spline_filter, BorderMode, PadMode};
@@ -12,6 +12,7 @@ use crate::{array_like, pad, round_ties_even, spline_filter, BorderMode, PadMode
 ///
 /// * `data` - A 3D array of the data to shift.
 /// * `shift` - The shift along the axes.
+/// * `order` - The order of the spline.
 /// * `mode` - The mode parameter determines how the input array is extended beyond its boundaries.
 /// * `prefilter` - Determines if the input array is prefiltered with spline_filter before
 ///   interpolation. The default is `true`, which will create a temporary `f64` array of filtered
@@ -20,6 +21,7 @@ use crate::{array_like, pad, round_ties_even, spline_filter, BorderMode, PadMode
 pub fn shift<S, A>(
     data: &ArrayBase<S, Ix3>,
     shift: [f64; 3],
+    order: usize,
     mode: BorderMode<A>,
     prefilter: bool,
 ) -> Array<A, Ix3>
@@ -27,7 +29,6 @@ where
     S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd + ToPrimitive,
 {
-    let order = 3;
     let dim = [data.dim().0, data.dim().1, data.dim().2];
     let shift = shift.map(|s| -s);
     let reslicer = ZoomShiftReslicer::new(dim, dim, [1.0, 1.0, 1.0], shift, order, mode);
@@ -42,6 +43,7 @@ where
 ///
 /// * `data` - A 3D array of the data to zoom
 /// * `zoom` - The zoom factor along the axes.
+/// * `order` - The order of the spline.
 /// * `mode` - The mode parameter determines how the input array is extended beyond its boundaries.
 /// * `prefilter` - Determines if the input array is prefiltered with spline_filter before
 ///   interpolation. The default is `true`, which will create a temporary `f64` array of filtered
@@ -50,6 +52,7 @@ where
 pub fn zoom<S, A>(
     data: &ArrayBase<S, Ix3>,
     zoom: [f64; 3],
+    order: usize,
     mode: BorderMode<A>,
     prefilter: bool,
 ) -> Array<A, Ix3>
@@ -57,7 +60,6 @@ where
     S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd + ToPrimitive,
 {
-    let order = 3;
     let i_dim = [data.dim().0, data.dim().1, data.dim().2];
     let mut o_dim = data.raw_dim();
     for (ax, (&ax_len, zoom)) in data.shape().iter().zip(zoom.iter()).enumerate() {
@@ -211,7 +213,9 @@ impl ZoomShiftReslicer {
                         to += 0.5;
                     }
 
-                    build_splines(from, to, splvals, order);
+                    if order > 0 {
+                        build_splines(from, to, splvals, order);
+                    }
 
                     let start = to.floor() as isize - iorder / 2;
                     offsets[from] = start;
@@ -291,12 +295,44 @@ impl ZoomShiftReslicer {
 
 fn build_splines(from: usize, to: f64, spline: &mut Array2<f64>, order: usize) {
     let x = to - to.floor();
-    let y = x;
-    let z = 1.0 - x;
-    spline[(from, 0)] = z * z * z / 6.0;
-    spline[(from, 1)] = (y * y * (y - 2.0) * 3.0 + 4.0) / 6.0;
-    spline[(from, 2)] = (z * z * (z - 2.0) * 3.0 + 4.0) / 6.0;
-    spline[(from, order)] = 1.0 - (spline[(from, 0)] + spline[(from, 1)] + spline[(from, 2)]);
+    let mut spline = spline.row_mut(from);
+    match order {
+        1 => spline[0] = 1.0 - x,
+        2 => {
+            spline[0] = 0.5 * (0.5 - x).powi(2);
+            spline[1] = 0.75 - x * x;
+        }
+        3 => {
+            let z = 1.0 - x;
+            spline[0] = z * z * z / 6.0;
+            spline[1] = (x * x * (x - 2.0) * 3.0 + 4.0) / 6.0;
+            spline[2] = (z * z * (z - 2.0) * 3.0 + 4.0) / 6.0;
+        }
+        4 => {
+            let t = x * x;
+            let y = 1.0 + x;
+            let z = 1.0 - x;
+            spline[0] = (0.5 - x).powi(4) / 24.0;
+            spline[1] = y * (y * (y * (5.0 - y) / 6.0 - 1.25) + 5.0 / 24.0) + 55.0 / 96.0;
+            spline[2] = t * (t * 0.25 - 0.625) + 115.0 / 192.0;
+            spline[3] = z * (z * (z * (5.0 - z) / 6.0 - 1.25) + 5.0 / 24.0) + 55.0 / 96.0;
+        }
+        5 => {
+            let y = 1.0 - x;
+            let t = y * y;
+            spline[0] = y * t * t / 120.0;
+            let y = x + 1.0;
+            spline[1] = y * (y * (y * (y * (y / 24.0 - 0.375) + 1.25) - 1.75) + 0.625) + 0.425;
+            spline[2] = t * (t * (0.25 - y / 12.0) - 0.5) + 0.55;
+            let z = 1.0 - x;
+            let t = z * z;
+            spline[3] = t * (t * (0.25 - z / 12.0) - 0.5) + 0.55;
+            let z = z + 1.0;
+            spline[4] = z * (z * (z * (z * (z / 24.0 - 0.375) + 1.25) - 1.75) + 0.625) + 0.425;
+        }
+        _ => panic!("order must be between 1 and 5"),
+    }
+    spline[order] = 1.0 - spline.slice(s![..order]).sum();
 }
 
 fn map_coordinates<A>(mut idx: f64, len: f64, mode: BorderMode<A>) -> f64 {
