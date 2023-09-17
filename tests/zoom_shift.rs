@@ -299,3 +299,34 @@ fn test_order_0() {
         epsilon = 1e-5
     );
 }
+
+#[test]
+fn test_order_1() {
+    let data = (0..18).collect::<Array1<_>>().into_shape((2, 3, 3)).unwrap().mapv(f64::from);
+    let gt = arr3(&[
+        [
+            [0.0, 0.66666667, 1.33333333, 2.0],
+            [3.0, 3.66666667, 4.33333333, 5.0],
+            [6.0, 6.66666667, 7.33333333, 8.0],
+        ],
+        [
+            [9.0, 9.66666667, 10.33333333, 11.0],
+            [12.0, 12.66666667, 13.33333333, 14.0],
+            [15.0, 15.66666667, 16.33333333, 17.0],
+        ],
+    ]);
+    let zooms = [1.1, 1.0, 1.3];
+
+    assert_relative_eq!(zoom(&data, zooms, 1, BorderMode::Constant(1.0), true), gt, epsilon = 1e-5);
+    assert_relative_eq!(zoom(&data, zooms, 1, BorderMode::Mirror, true), gt, epsilon = 1e-5);
+    assert_relative_eq!(
+        shift(&data, [0.1, 0.2, 0.3], 1, BorderMode::Nearest, true),
+        arr3(&[
+            [[0.0, 0.7, 1.7], [2.4, 3.1, 4.1], [5.4, 6.1, 7.1]],
+            [[8.1, 8.8, 9.8], [10.5, 11.2, 12.2], [13.5, 14.2, 15.2]],
+        ]),
+        epsilon = 1e-5
+    );
+    assert_relative_eq!(zoom(&data, zooms, 1, BorderMode::Reflect, true), gt, epsilon = 1e-5);
+    assert_relative_eq!(zoom(&data, zooms, 1, BorderMode::Wrap, true), gt, epsilon = 1e-5);
+}
