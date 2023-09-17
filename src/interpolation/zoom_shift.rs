@@ -207,12 +207,11 @@ impl ZoomShiftReslicer {
                     _ => to = map_coordinates(to, idim[axis] as f64, mode),
                 };
                 if to > -1.0 {
-                    if order & 1 == 0 {
-                        to += 0.5;
-                    }
-
                     if order > 0 {
                         build_splines(to, &mut splvals.row_mut(from), order);
+                    }
+                    if order & 1 == 0 {
+                        to += 0.5;
                     }
 
                     let start = to.floor() as isize - iorder / 2;
@@ -292,7 +291,7 @@ impl ZoomShiftReslicer {
 }
 
 fn build_splines(to: f64, spline: &mut ArrayViewMut1<f64>, order: usize) {
-    let x = to - to.floor();
+    let x = to - if order & 1 == 1 { to } else { to + 0.5 }.floor();
     match order {
         1 => spline[0] = 1.0 - x,
         2 => {
