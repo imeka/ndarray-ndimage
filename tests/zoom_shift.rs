@@ -384,3 +384,57 @@ fn test_order_2() {
     );
     assert_relative_eq!(zoom(&data, zooms, 2, BorderMode::Wrap, true), gt, epsilon = 1e-5);
 }
+
+#[test]
+fn test_order_4() {
+    let data = (0..18).collect::<Array1<_>>().into_shape((2, 3, 3)).unwrap().mapv(f64::from);
+    let zooms = [1.1, 1.0, 1.3];
+    let gt = arr3(&[
+        [
+            [-0.0, 0.50617284, 1.49382716, 2.0],
+            [3.0, 3.50617284, 4.49382716, 5.0],
+            [6.0, 6.50617284, 7.49382716, 8.0],
+        ],
+        [
+            [9.0, 9.50617284, 10.49382716, 11.0],
+            [12.0, 12.50617284, 13.49382716, 14.0],
+            [15.0, 15.50617284, 16.49382716, 17.0],
+        ],
+    ]);
+
+    assert_relative_eq!(zoom(&data, zooms, 4, BorderMode::Constant(1.0), true), gt, epsilon = 1e-5);
+    assert_relative_eq!(zoom(&data, zooms, 4, BorderMode::Mirror, true), gt, epsilon = 1e-5);
+    assert_relative_eq!(
+        shift(&data, [0.1, 0.2, 0.3], 4, BorderMode::Nearest, true),
+        arr3(&[
+            [
+                [-0.77261676, -0.08009635, 1.109335],
+                [1.63927254, 2.33179295, 3.5212243],
+                [5.06771269, 5.7602331, 6.94966445]
+            ],
+            [
+                [8.06988414, 8.76240455, 9.9518359],
+                [10.48177344, 11.17429385, 12.3637252],
+                [13.91021359, 14.602734, 15.79216536]
+            ],
+        ]),
+        epsilon = 1e-5
+    );
+    assert_relative_eq!(
+        zoom(&data, zooms, 4, BorderMode::Reflect, true),
+        arr3(&[
+            [
+                [0.02515365, 0.63314964, 1.42426572, 2.03095442],
+                [3.03613884, 3.64792541, 4.44174486, 5.04879375],
+                [6.04248722, 6.65722916, 7.45266864, 8.05924956]
+            ],
+            [
+                [8.96935084, 9.5840278, 10.37721599, 10.98040528],
+                [11.98209853, 12.60056491, 13.39645368, 14.0],
+                [14.97800537, 15.59941686, 16.39692003, 17.0]
+            ],
+        ]),
+        epsilon = 1e-5
+    );
+    assert_relative_eq!(zoom(&data, zooms, 4, BorderMode::Wrap, true), gt, epsilon = 1e-5);
+}
