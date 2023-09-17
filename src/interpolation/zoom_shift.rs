@@ -244,6 +244,13 @@ impl ZoomShiftReslicer {
             return self.cval;
         }
 
+        if self.edge_offsets[0].is_empty() {
+            let x = self.offsets[0][start.0] as usize;
+            let y = self.offsets[1][start.1] as usize;
+            let z = self.offsets[2][start.2] as usize;
+            return data[(x, y, z)].to_f64().unwrap();
+        }
+
         // Linear interpolation use a 4x4x4 block. This is simple enough, but we must adjust this
         // block when the `start` is near the edges.
         let valid_index = |original_offset, is_edge, start, d: usize, v| {
