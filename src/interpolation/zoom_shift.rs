@@ -31,10 +31,7 @@ where
 {
     let dim = [data.dim().0, data.dim().1, data.dim().2];
     let shift = shift.map(|s| -s);
-    let reslicer = ZoomShiftReslicer::new(dim, dim, [1.0, 1.0, 1.0], shift, order, mode);
-
-    let out = array_like(&data, data.raw_dim(), A::zero());
-    run_zoom_shift(data, order, mode, prefilter, &reslicer, out)
+    run_zoom_shift(data, dim, [1.0, 1.0, 1.0], shift, order, mode, prefilter)
 }
 
 /// Zoom an array.
@@ -60,7 +57,6 @@ where
     S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd + ToPrimitive,
 {
-    let i_dim = [data.dim().0, data.dim().1, data.dim().2];
     let mut o_dim = data.raw_dim();
     for (ax, (&ax_len, zoom)) in data.shape().iter().zip(zoom.iter()).enumerate() {
         o_dim[ax] = round_ties_even(ax_len as f64 * zoom) as usize;
@@ -78,46 +74,49 @@ where
         nom[1] as f64 / div[1] as f64,
         nom[2] as f64 / div[2] as f64,
     ];
-    let reslicer = ZoomShiftReslicer::new(i_dim, o_dim, zoom, [0.0, 0.0, 0.0], order, mode);
 
-    let out = array_like(&data, o_dim, A::zero());
-    run_zoom_shift(data, order, mode, prefilter, &reslicer, out)
+    run_zoom_shift(data, o_dim, zoom, [0.0, 0.0, 0.0], order, mode, prefilter)
 }
 
 fn run_zoom_shift<S, A>(
     data: &ArrayBase<S, Ix3>,
+    odim: [usize; 3],
+    zooms: [f64; 3],
+    shifts: [f64; 3],
     order: usize,
     mode: BorderMode<A>,
     prefilter: bool,
-    reslicer: &ZoomShiftReslicer,
-    mut out: Array<A, Ix3>,
 ) -> Array<A, Ix3>
 where
     S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd + ToPrimitive,
 {
+    let idim = [data.dim().0, data.dim().1, data.dim().2];
+    let mut out = array_like(&data, odim, A::zero());
     if prefilter && order > 1 {
-        let data = match mode {
+        // We need to allocate and work on filtered data
+        let (data, nb_prepad) = match mode {
             BorderMode::Nearest => {
                 let padded = pad(data, &[[12, 12]], PadMode::Edge);
-                spline_filter(&padded, order, mode)
+                (spline_filter(&padded, order, mode), 12)
             }
-            _ => spline_filter(data, order, mode),
+            _ => (spline_filter(data, order, mode), 0),
         };
+        let reslicer = ZoomShiftReslicer::new(idim, odim, zooms, shifts, order, mode, nb_prepad);
         Zip::indexed(&mut out).for_each(|idx, o| {
             *o = A::from_f64(reslicer.interpolate(&data, idx)).unwrap();
         });
     } else {
+        // We can use the &data as-is
+        let reslicer = ZoomShiftReslicer::new(idim, odim, zooms, shifts, order, mode, 0);
         Zip::indexed(&mut out).for_each(|idx, o| {
-            *o = A::from_f64(reslicer.interpolate(&data, idx)).unwrap();
+            *o = A::from_f64(reslicer.interpolate(data, idx)).unwrap();
         });
     }
     out
 }
 
 /// Zoom shift transformation (only scaling and translation).
-///
-/// Hardcoded to use spline interpolation of order 3 and mirror mode.
 struct ZoomShiftReslicer {
     offsets: [Vec<isize>; 3],
     edge_offsets: [Array2<isize>; 3],
@@ -136,6 +135,7 @@ impl ZoomShiftReslicer {
         shifts: [f64; 3],
         order: usize,
         mode: BorderMode<A>,
+        nb_prepad: isize,
     ) -> ZoomShiftReslicer
     where
         A: Copy + ToPrimitive,
@@ -163,7 +163,7 @@ impl ZoomShiftReslicer {
 
         let mut reslicer =
             ZoomShiftReslicer { offsets, edge_offsets, is_edge_case, splvals, zeros, cval };
-        reslicer.build_arrays(idim, odim, zooms, shifts, order, mode);
+        reslicer.build_arrays(idim, odim, zooms, shifts, order, mode, nb_prepad);
         reslicer
     }
 
@@ -175,6 +175,7 @@ impl ZoomShiftReslicer {
         shifts: [f64; 3],
         order: usize,
         mode: BorderMode<A>,
+        nb_prepad: isize,
     ) where
         A: Copy,
     {
@@ -182,10 +183,6 @@ impl ZoomShiftReslicer {
         let spline_mode = match mode {
             BorderMode::Constant(_) | BorderMode::Wrap => BorderMode::Mirror,
             _ => mode,
-        };
-        let nb_prepad = match mode {
-            BorderMode::Nearest => 12,
-            _ => 0,
         };
         let iorder = order as isize;
         let idim = [
