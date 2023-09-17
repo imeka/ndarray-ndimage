@@ -213,7 +213,6 @@ impl ZoomShiftReslicer {
 
                     if order > 0 {
                         build_splines(to, &mut splvals.row_mut(from), order);
-                        println!("Spline at {to}: {}", splvals.row(from));
                     }
 
                     let start = to.floor() as isize - iorder / 2;
@@ -243,8 +242,10 @@ impl ZoomShiftReslicer {
             return self.cval;
         }
 
-        // Order=0
-        // TODO We can remove this and leave it to the 3 for loops below when we fix xs, ys, za
+        // Order = 0
+        // We do not want to go further because
+        // - it would be uselessly slower
+        // - self.splvals is empty so it would crash (although we could fill it with 1.0)
         if self.edge_offsets[0].is_empty() {
             let x = self.offsets[0][start.0] as usize;
             let y = self.offsets[1][start.1] as usize;
