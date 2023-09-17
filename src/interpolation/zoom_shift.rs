@@ -1,6 +1,6 @@
 use std::ops::{Add, Sub};
 
-use ndarray::{s, Array, Array2, ArrayBase, Data, Ix3, Zip};
+use ndarray::{s, Array, Array2, ArrayBase, ArrayViewMut1, Data, Ix3, Zip};
 use num_traits::{FromPrimitive, Num, ToPrimitive};
 
 use crate::{array_like, pad, round_ties_even, spline_filter, BorderMode, PadMode};
@@ -118,6 +118,7 @@ where
 
 /// Zoom shift transformation (only scaling and translation).
 struct ZoomShiftReslicer {
+    order: usize,
     offsets: [Vec<isize>; 3],
     edge_offsets: [Array2<isize>; 3],
     is_edge_case: [Vec<bool>; 3],
@@ -162,7 +163,7 @@ impl ZoomShiftReslicer {
         };
 
         let mut reslicer =
-            ZoomShiftReslicer { offsets, edge_offsets, is_edge_case, splvals, zeros, cval };
+            ZoomShiftReslicer { order, offsets, edge_offsets, is_edge_case, splvals, zeros, cval };
         reslicer.build_arrays(idim, odim, zooms, shifts, order, mode, nb_prepad);
         reslicer
     }
@@ -211,7 +212,8 @@ impl ZoomShiftReslicer {
                     }
 
                     if order > 0 {
-                        build_splines(from, to, splvals, order);
+                        build_splines(to, &mut splvals.row_mut(from), order);
+                        println!("Spline at {to}: {}", splvals.row(from));
                     }
 
                     let start = to.floor() as isize - iorder / 2;
@@ -241,6 +243,8 @@ impl ZoomShiftReslicer {
             return self.cval;
         }
 
+        // Order=0
+        // TODO We can remove this and leave it to the 3 for loops below when we fix xs, ys, za
         if self.edge_offsets[0].is_empty() {
             let x = self.offsets[0][start.0] as usize;
             let y = self.offsets[1][start.1] as usize;
@@ -248,46 +252,35 @@ impl ZoomShiftReslicer {
             return data[(x, y, z)].to_f64().unwrap();
         }
 
-        // Linear interpolation use a 4x4x4 block. This is simple enough, but we must adjust this
+        // Linear interpolation use a nxnxn block. This is simple enough, but we must adjust this
         // block when the `start` is near the edges.
+        let n = self.order + 1;
         let valid_index = |original_offset, is_edge, start, d: usize, v| {
             (original_offset + if is_edge { self.edge_offsets[d][(start, v)] } else { v as isize })
                 as usize
         };
 
-        let original_offset = self.offsets[0][start.0];
-        let is_edge = self.is_edge_case[0][start.0];
-        let xs = [
-            valid_index(original_offset, is_edge, start.0, 0, 0),
-            valid_index(original_offset, is_edge, start.0, 0, 1),
-            valid_index(original_offset, is_edge, start.0, 0, 2),
-            valid_index(original_offset, is_edge, start.0, 0, 3),
-        ];
-
-        let original_offset = self.offsets[1][start.1];
-        let is_edge = self.is_edge_case[1][start.1];
-        let ys = [
-            valid_index(original_offset, is_edge, start.1, 1, 0),
-            valid_index(original_offset, is_edge, start.1, 1, 1),
-            valid_index(original_offset, is_edge, start.1, 1, 2),
-            valid_index(original_offset, is_edge, start.1, 1, 3),
-        ];
-
-        let original_offset = self.offsets[2][start.2];
-        let is_edge = self.is_edge_case[2][start.2];
-        let zs = [
-            valid_index(original_offset, is_edge, start.2, 2, 0),
-            valid_index(original_offset, is_edge, start.2, 2, 1),
-            valid_index(original_offset, is_edge, start.2, 2, 2),
-            valid_index(original_offset, is_edge, start.2, 2, 3),
-        ];
+        let original_offset_x = self.offsets[0][start.0];
+        let is_edge_x = self.is_edge_case[0][start.0];
+        let mut xs = [0; 6];
+        let original_offset_y = self.offsets[1][start.1];
+        let is_edge_y = self.is_edge_case[1][start.1];
+        let mut ys = [0; 6];
+        let original_offset_z = self.offsets[2][start.2];
+        let is_edge_z = self.is_edge_case[2][start.2];
+        let mut zs = [0; 6];
+        for i in 0..n {
+            xs[i] = valid_index(original_offset_x, is_edge_x, start.0, 0, i);
+            ys[i] = valid_index(original_offset_y, is_edge_y, start.1, 1, i);
+            zs[i] = valid_index(original_offset_z, is_edge_z, start.2, 2, i);
+        }
 
         let mut t = 0.0;
-        for (z, &idx_z) in zs.iter().enumerate() {
+        for (z, &idx_z) in zs[..n].iter().enumerate() {
             let spline_z = self.splvals[2][(start.2, z)];
-            for (y, &idx_y) in ys.iter().enumerate() {
+            for (y, &idx_y) in ys[..n].iter().enumerate() {
                 let spline_yz = self.splvals[1][(start.1, y)] * spline_z;
-                for (x, &idx_x) in xs.iter().enumerate() {
+                for (x, &idx_x) in xs[..n].iter().enumerate() {
                     let spline_xyz = self.splvals[0][(start.0, x)] * spline_yz;
                     t += data[(idx_x, idx_y, idx_z)].to_f64().unwrap() * spline_xyz;
                 }
@@ -297,9 +290,8 @@ impl ZoomShiftReslicer {
     }
 }
 
-fn build_splines(from: usize, to: f64, spline: &mut Array2<f64>, order: usize) {
+fn build_splines(to: f64, spline: &mut ArrayViewMut1<f64>, order: usize) {
     let x = to - to.floor();
-    let mut spline = spline.row_mut(from);
     match order {
         1 => spline[0] = 1.0 - x,
         2 => {
