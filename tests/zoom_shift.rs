@@ -278,6 +278,11 @@ fn test_order_0() {
         epsilon = 1e-5
     );
     assert_relative_eq!(
+        shift(&data, [0.1, -0.2, 0.3], 0, BorderMode::Nearest, true),
+        data,
+        epsilon = 1e-5
+    );
+    assert_relative_eq!(
         zoom(&data, [1.1, 1.0, 1.3], 0, BorderMode::Reflect, true),
         arr3(&[
             [[0.0, 1.0, 1.0, 2.0], [3.0, 4.0, 4.0, 5.0], [6.0, 7.0, 7.0, 8.0]],
