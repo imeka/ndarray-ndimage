@@ -319,7 +319,8 @@ fn build_splines(to: f64, spline: &mut ArrayViewMut1<f64>, order: usize) {
             spline[0] = y * t * t / 120.0;
             let y = x + 1.0;
             spline[1] = y * (y * (y * (y * (y / 24.0 - 0.375) + 1.25) - 1.75) + 0.625) + 0.425;
-            spline[2] = t * (t * (0.25 - y / 12.0) - 0.5) + 0.55;
+            let t = x * x;
+            spline[2] = t * (t * (0.25 - x / 12.0) - 0.5) + 0.55;
             let z = 1.0 - x;
             let t = z * z;
             spline[3] = t * (t * (0.25 - z / 12.0) - 0.5) + 0.55;
