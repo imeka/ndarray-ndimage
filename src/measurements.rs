@@ -42,26 +42,34 @@ where
 /// Returns a new mask, containing the biggest zone of `mask`.
 ///
 /// * `mask` - Binary image to be labeled and studied.
-pub fn largest_connected_components<S>(mask: &ArrayBase<S, Ix3>) -> Option<Mask>
+/// * `structure` - Structuring element used for the labeling. Must be 3x3x3 (e.g. the result
+///   of [`Kernel3d::generate`](crate::Kernel3d::generate)) and centrosymmetric. The center must be `true`.
+pub fn largest_connected_components<S>(
+    mask: &ArrayBase<S, Ix3>,
+    structure: &ArrayBase<S, Ix3>,
+) -> Option<Mask>
 where
     S: Data<Elem = bool>,
 {
-    let (labels, nb_features) = label(mask);
+    let (labels, nb_features) = label(mask, structure);
     let (right_label, _) = most_frequent_label(&labels, nb_features)?;
     Some(labels.mapv(|l| l == right_label))
 }
 
 /// Labels features of 3D binary images.
 ///
-/// Currently hardcoded with the Star kernel (`Kernel3d::Star`).
-///
 /// Returns the labels and the number of features.
 ///
 /// * `mask` - Binary image to be labeled. `false` values are considered the background.
-pub fn label<S>(data: &ArrayBase<S, Ix3>) -> (Array3<u16>, usize)
+/// * `structure` - Structuring element used for the labeling. Must be 3x3x3 (e.g. the result
+///   of [`Kernel3d::generate`](crate::Kernel3d::generate)) and centrosymmetric. The center must be `true`.
+pub fn label<S>(data: &ArrayBase<S, Ix3>, structure: &ArrayBase<S, Ix3>) -> (Array3<u16>, usize)
 where
     S: Data<Elem = bool>,
 {
+    assert!(structure.shape() == &[3, 3, 3], "`structure` must be size 3 in all dimensions");
+    assert!(structure == structure.slice(s![..;-1, ..;-1, ..;-1]), "`structure is not symmetric");
+
     let len = data.dim().2;
     let mut line_buffer = vec![BACKGROUND; len + 2];
     let mut neighbors = vec![BACKGROUND; len + 2];
@@ -69,20 +77,27 @@ where
     let mut next_region = FOREGROUND + 1;
     let mut equivalences: Vec<_> = (0..next_region).collect();
 
-    // We only handle 3D data with a 6-connectivity kernel for now, but this algo can handle
-    // N-dimensional data and any symmetric kernels.
+    // We only handle 3D data for now, but this algo can handle N-dimensional data.
     // https://github.com/scipy/scipy/blob/v0.16.1/scipy/ndimage/src/_ni_label.pyx
     // N-D: Use a loop in `is_valid` and change the `labels` indexing (might be hard in Rust)
-    // Kernels: Add new `kernel_data` and choose the right one
-    let kernel_data = [
-        //((false, false, false), [0, 0]),
-        ([false, true, false], [0, 1]),
-        //((false, false, false), [0, 0]),
-        ([false, true, false], [1, 0]),
-    ];
-    let nb_neighbors = kernel_data.len();
 
-    let use_previous = true;
+    let nb_neighbors = structure.len() / 6;
+    let kernel_data: Vec<([bool; 3], [isize; 2])> = structure
+        .lanes(Axis(2))
+        .into_iter()
+        .zip(0isize..nb_neighbors as isize)
+        // Filter out kernel lanes with no true elements (since that are no-ops)
+        .filter(|(lane, _)| lane.iter().any(|x| *x))
+        .map(|(lane, i)| {
+            let kernel: [bool; 3] = lane.iter().map(|x| *x).collect::<Vec<_>>().try_into().unwrap();
+            // Convert i into coordinates
+            let y = i / 3;
+            let x = i - y * 3;
+            (kernel, [y, x])
+        })
+        .collect();
+
+    let use_previous = structure[(1, 1, 0)];
     let width = data.dim().0 as isize;
     let height = data.dim().1 as isize;
     let mut labels = Array3::from_elem(data.dim(), BACKGROUND);
@@ -100,7 +115,7 @@ where
                     *b = v;
                 }
 
-                let label_unlabeled = i == nb_neighbors - 1;
+                let label_unlabeled = i == kernel_data.len() - 1;
                 next_region = label_line_with_neighbor(
                     &mut line_buffer,
                     &neighbors,
@@ -146,15 +161,12 @@ fn is_valid(idx: &[usize; 2], coords: &[isize; 2], dims: &[isize; 2]) -> Option<
     let valid = |i, c, d| -> Option<usize> {
         let a = i as isize + (c - 1);
         if a >= 0 && a < d {
-            if c == 0 {
-                return Some(i - 1);
-            }
+            Some(a as usize)
         } else {
-            return None;
+            None
         }
-        Some(i)
     };
-    // Returns `Some((x, y))` only if both calls succeded
+    // Returns `Some((x, y))` only if both calls succeeded
     valid(idx[0], coords[0], dims[0])
         .and_then(|x| valid(idx[1], coords[1], dims[1]).and_then(|y| Some((x, y))))
 }
