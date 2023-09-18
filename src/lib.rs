@@ -66,7 +66,7 @@ impl Kernel3d {
     }
 }
 
-/// Utilitary function that returns a new *n*-dimensional array of dimension `shape` with the same
+/// Utility function that returns a new *n*-dimensional array of dimension `shape` with the same
 /// datatype and memory order as the input `arr`.
 pub fn array_like<S, A, D, Sh>(arr: &ArrayBase<S, D>, shape: Sh, elem: A) -> Array<A, D>
 where

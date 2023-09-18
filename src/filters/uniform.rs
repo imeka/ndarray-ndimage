@@ -1,9 +1,7 @@
-use ndarray::{Array, ArrayBase, Axis, Data, Dimension};
-use num_traits::{Float, FromPrimitive};
+use ndarray::{Array, Array1, ArrayBase, Axis, Data, Dimension, Zip};
+use num_traits::{Float, FromPrimitive, Num};
 
-use crate::{array_like, BorderMode};
-
-use super::{con_corr::inner_correlate1d, symmetry::SymmetryStateCheck};
+use crate::{array_like, pad_to, BorderMode};
 
 /// Uniform filter for n-dimensional arrays.
 ///
@@ -23,11 +21,9 @@ pub fn uniform_filter<S, A, D>(
 where
     S: Data<Elem = A>,
     A: Float + FromPrimitive + 'static,
-    for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
 {
-    let weights = weights(size);
-    let half = weights.len() / 2;
+    let half = size / 2;
 
     // We need 2 buffers because
     // * We're reading neighbours so we can't read and write on the same location.
@@ -46,7 +42,7 @@ where
             panic!("Data size is too small for the inputs (sigma and truncate)");
         }
 
-        inner_correlate1d(&data, &weights, Axis(d), mode, 0, &mut output);
+        inner_uniform1d(&data, size, Axis(d), mode, &mut output);
         if d != data.ndim() - 1 {
             std::mem::swap(&mut output, &mut data);
         }
@@ -72,39 +68,46 @@ pub fn uniform_filter1d<S, A, D>(
 where
     S: Data<Elem = A>,
     A: Float + FromPrimitive + 'static,
-    for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
 {
-    let weights = weights(size);
     let mut output = array_like(&data, data.dim(), A::zero());
-    inner_correlate1d(data, &weights, axis, mode, 0, &mut output);
+    inner_uniform1d(data, size, axis, mode, &mut output);
     output
 }
 
-fn weights<A>(size: usize) -> Vec<A>
-where
-    A: Float + FromPrimitive + 'static,
+pub(crate) fn inner_uniform1d<S, A, D>(
+    data: &ArrayBase<S, D>,
+    size: usize,
+    axis: Axis,
+    mode: BorderMode<A>,
+    output: &mut Array<A, D>,
+) where
+    S: Data<Elem = A>,
+    A: Copy + Num + FromPrimitive + PartialOrd,
+    D: Dimension,
 {
-    if size == 0 {
-        panic!("Size is zero");
-    }
-    [A::one() / A::from_usize(size).unwrap()].repeat(size)
-}
+    let size1 = size / 2;
+    let size2 = size - size1 - 1;
+    let size_as_a = A::from_usize(size).unwrap();
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use approx::assert_relative_eq;
+    let mode = mode.to_pad_mode();
+    let n = data.len_of(axis);
+    let pad = vec![[size1, size2]];
+    let mut buffer = Array1::from_elem(n + size - 1, mode.init());
 
-    #[test]
-    fn test_weights() {
-        assert_relative_eq!(weights(5).as_slice(), &[0.2, 0.2, 0.2, 0.2, 0.2][..], epsilon = 1e-7);
-        assert_relative_eq!(weights(1).as_slice(), &[1.0][..], epsilon = 1e-7);
-    }
+    Zip::from(data.lanes(axis)).and(output.lanes_mut(axis)).for_each(|input, mut o| {
+        pad_to(&input, &pad, mode, &mut buffer);
+        let buffer = buffer.as_slice_memory_order().unwrap();
+        let mut accumulator = buffer.iter().take(size - 1).fold(A::zero(), |acc, elem| acc + *elem);
 
-    #[should_panic]
-    #[test]
-    fn test_weights_zero() {
-        weights::<f64>(0);
-    }
+        // Optimise the filter by keeping a running total, to which add the newest item entering the
+        // window, and then subtract the element which has fallen out of the window.
+        o.iter_mut().zip(buffer.iter().skip(size - 1)).zip(buffer).for_each(
+            |((o, leading_edge), trailing_edge)| {
+                accumulator = accumulator + *leading_edge;
+                *o = accumulator / size_as_a;
+                accumulator = accumulator - *trailing_edge;
+            },
+        );
+    });
 }
