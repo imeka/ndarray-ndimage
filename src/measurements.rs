@@ -89,7 +89,7 @@ where
         // Filter out kernel lanes with no true elements (since that are no-ops)
         .filter(|(lane, _)| lane.iter().any(|x| *x))
         .map(|(lane, i)| {
-            let kernel: [bool; 3] = lane.iter().map(|x| *x).collect::<Vec<_>>().try_into().unwrap();
+            let kernel = [lane[0], lane[1], lane[2]];
             // Convert i into coordinates
             let y = i / 3;
             let x = i - y * 3;
