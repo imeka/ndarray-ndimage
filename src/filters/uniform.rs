@@ -1,4 +1,4 @@
-use ndarray::{Array, Array1, ArrayBase, Axis, Data, Dimension, Zip};
+use ndarray::{s, Array, Array1, ArrayBase, Axis, Data, Dimension, Zip};
 use num_traits::{Float, FromPrimitive, Num};
 
 use crate::{array_like, pad_to, BorderMode};
@@ -95,18 +95,17 @@ pub(crate) fn inner_uniform1d<S, A, D>(
     let pad = vec![[size1, size2]];
     let mut buffer = Array1::from_elem(n + size - 1, mode.init());
 
-    Zip::from(data.lanes(axis)).and(output.lanes_mut(axis)).for_each(|input, mut o| {
+    Zip::from(data.lanes(axis)).and(output.lanes_mut(axis)).for_each(|input, o| {
         pad_to(&input, &pad, mode, &mut buffer);
-        let buffer = buffer.as_slice_memory_order().unwrap();
-        let mut accumulator = buffer.iter().take(size - 1).fold(A::zero(), |acc, elem| acc + *elem);
+        let mut accumulator = buffer.slice(s![..size - 1]).sum();
 
         // Optimise the filter by keeping a running total, to which add the newest item entering the
         // window, and then subtract the element which has fallen out of the window.
-        o.iter_mut().zip(buffer.iter().skip(size - 1)).zip(buffer).for_each(
-            |((o, leading_edge), trailing_edge)| {
-                accumulator = accumulator + *leading_edge;
+        Zip::from(o).and(buffer.slice(s![size - 1..])).and(buffer.slice(s![..n])).for_each(
+            |o, &leading_edge, &trailing_edge| {
+                accumulator = accumulator + leading_edge;
                 *o = accumulator / size_as_a;
-                accumulator = accumulator - *trailing_edge;
+                accumulator = accumulator - trailing_edge;
             },
         );
     });
