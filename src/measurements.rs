@@ -81,12 +81,14 @@ where
     // https://github.com/scipy/scipy/blob/v0.16.1/scipy/ndimage/src/_ni_label.pyx
     // N-D: Use a loop in `is_valid` and change the `labels` indexing (might be hard in Rust)
 
-    let nb_neighbors = structure.len() / 6;
+    let nb_neighbors = structure.len() / (3 * 2);
     let kernel_data: Vec<([bool; 3], [isize; 2])> = structure
         .lanes(Axis(2))
         .into_iter()
-        .zip(0isize..nb_neighbors as isize)
-        // Filter out kernel lanes with no true elements (since that are no-ops)
+        .zip(0isize..)
+        // Only consider lanes before the center
+        .take(nb_neighbors)
+        // Filter out kernel lanes with no `true` elements (since that are no-ops)
         .filter(|(lane, _)| lane.iter().any(|x| *x))
         .map(|(lane, i)| {
             let kernel = [lane[0], lane[1], lane[2]];
