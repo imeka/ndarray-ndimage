@@ -1,5 +1,5 @@
 use ndarray::{s, Array, Array1, ArrayBase, Axis, Data, Dimension, Zip};
-use num_traits::{Float, FromPrimitive, Num};
+use num_traits::{FromPrimitive, Num};
 
 use crate::{array_like, pad_to, BorderMode};
 
@@ -20,7 +20,7 @@ pub fn uniform_filter<S, A, D>(
 ) -> Array<A, D>
 where
     S: Data<Elem = A>,
-    A: Float + FromPrimitive + 'static,
+    A: Copy + Num + FromPrimitive + PartialOrd + 'static,
     D: Dimension,
 {
     let half = size / 2;
@@ -67,7 +67,7 @@ pub fn uniform_filter1d<S, A, D>(
 ) -> Array<A, D>
 where
     S: Data<Elem = A>,
-    A: Float + FromPrimitive + 'static,
+    A: Copy + Num + FromPrimitive + PartialOrd + 'static,
     D: Dimension,
 {
     let mut output = array_like(&data, data.dim(), A::zero());
