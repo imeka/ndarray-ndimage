@@ -1,10 +1,10 @@
 use ndarray::{s, Array3, ArrayBase, Axis, Data, Ix3, Zip};
-use num_traits::{Bounded, FromPrimitive, Num, NumAssignOps, ToPrimitive, Unsigned};
+use num_traits::{Bounded, FromPrimitive, NumAssignOps, ToPrimitive, Unsigned};
 
 use crate::Mask;
 
 pub trait LabelType:
-    Copy + Num + FromPrimitive + ToPrimitive + Ord + Unsigned + NumAssignOps + Bounded
+    Copy + FromPrimitive + ToPrimitive + Ord + Unsigned + NumAssignOps + Bounded
 {
     fn background() -> Self;
     fn foreground() -> Self;
@@ -12,8 +12,7 @@ pub trait LabelType:
 
 impl<T> LabelType for T
 where
-    T: Copy + Num + FromPrimitive + ToPrimitive + Ord + Unsigned + NumAssignOps + Bounded,
-    std::ops::Range<T>: Iterator,
+    T: Copy + FromPrimitive + ToPrimitive + Ord + Unsigned + NumAssignOps + Bounded,
 {
     fn background() -> Self {
         T::zero()
