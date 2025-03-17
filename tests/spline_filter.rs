@@ -113,7 +113,8 @@ fn test_spline_filter_2d() {
 
 #[test] // Results verified with the `spline_filter` function from SciPy. (v1.7.0)
 fn test_spline_filter_3d() {
-    let data = (0..27).collect::<Array1<_>>().into_shape((3, 3, 3)).unwrap().mapv(f64::from);
+    let data =
+        (0..27).collect::<Array1<_>>().into_shape_with_order((3, 3, 3)).unwrap().mapv(f64::from);
 
     // Order 2
     assert_relative_eq!(
@@ -208,7 +209,8 @@ fn test_spline_filter1d() {
         epsilon = 1e-5
     );
 
-    let data = (0..27).collect::<Array1<_>>().into_shape((3, 3, 3)).unwrap().mapv(f64::from);
+    let data =
+        (0..27).collect::<Array1<_>>().into_shape_with_order((3, 3, 3)).unwrap().mapv(f64::from);
     assert_relative_eq!(
         spline_filter1d(&data, 3, BorderMode::Mirror, Axis(0)),
         arr3(&[

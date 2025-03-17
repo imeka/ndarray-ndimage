@@ -8,11 +8,11 @@ fn simple_data_1d() -> Array1<u16> {
 }
 
 fn simple_data_2d() -> Array2<f64> {
-    (0..12).map(|v| v as f64).collect::<Array1<_>>().into_shape((3, 4)).unwrap()
+    (0..12).map(|v| v as f64).collect::<Array1<_>>().into_shape_with_order((3, 4)).unwrap()
 }
 
 fn simple_data_3d() -> Array3<f64> {
-    (0..24).map(|v| v as f64).collect::<Array1<_>>().into_shape((2, 3, 4)).unwrap()
+    (0..24).map(|v| v as f64).collect::<Array1<_>>().into_shape_with_order((2, 3, 4)).unwrap()
 }
 
 #[test] // Results verified with the `pad(mode='maximum')` function from NumPy. (v1.21.4)
