@@ -5,7 +5,8 @@ use ndarray_ndimage::{shift, zoom, BorderMode};
 
 #[test] // Results verified with the `shift` function from SciPy. (v1.8.1)
 fn test_shift() {
-    let data = (0..27).collect::<Array1<_>>().into_shape((3, 3, 3)).unwrap().mapv(f64::from);
+    let data =
+        (0..27).collect::<Array1<_>>().into_shape_with_order((3, 3, 3)).unwrap().mapv(f64::from);
     assert_relative_eq!(
         shift(&data, [0.7, 0.9, 1.1], BorderMode::Mirror, true),
         arr3(&[
@@ -61,7 +62,8 @@ fn test_shift() {
 
 #[test] // Results verified with the `shift` function from SciPy. (v1.10.1)
 fn shift_modes() {
-    let data = (0..18).collect::<Array1<_>>().into_shape((2, 3, 3)).unwrap().mapv(f64::from);
+    let data =
+        (0..18).collect::<Array1<_>>().into_shape_with_order((2, 3, 3)).unwrap().mapv(f64::from);
     assert_relative_eq!(
         shift(&data, [0.1, 0.2, 0.3], BorderMode::Constant(1.0), true),
         arr3(&[
@@ -122,7 +124,8 @@ fn shift_modes() {
 
 #[test] // Results verified with the `zoom` function from SciPy. (v1.8.1)
 fn test_zoom() {
-    let data = (0..27).collect::<Array1<_>>().into_shape((3, 3, 3)).unwrap().mapv(f64::from);
+    let data =
+        (0..27).collect::<Array1<_>>().into_shape_with_order((3, 3, 3)).unwrap().mapv(f64::from);
     assert_relative_eq!(
         zoom(&data, [1.5, 1.5, 1.5], BorderMode::Mirror, true),
         arr3(&[
@@ -184,7 +187,8 @@ fn test_zoom() {
 #[test] // Results verified with the `zoom` function from SciPy. (v1.10.1)
 fn zoom_modes() {
     let zooms = [1.1, 1.2, 1.3];
-    let data = (0..18).collect::<Array1<_>>().into_shape((2, 3, 3)).unwrap().mapv(f64::from);
+    let data =
+        (0..18).collect::<Array1<_>>().into_shape_with_order((2, 3, 3)).unwrap().mapv(f64::from);
     let gt = arr3(&[
         [
             [0.0, 0.51851852, 1.48148148, 2.0],
