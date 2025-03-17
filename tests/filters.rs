@@ -285,7 +285,7 @@ fn test_correlate1d() {
 #[test] // Results verified with SciPy. (v1.9.0)
 fn test_convolve() {
     let a: Array1<usize> = (0..25).collect();
-    let a = a.into_shape((5, 5)).unwrap();
+    let a = a.into_shape_with_order((5, 5)).unwrap();
 
     let weight = arr2(&[[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
     assert_eq!(
@@ -323,7 +323,7 @@ fn test_convolve() {
 #[test] // Results verified with SciPy. (v1.9.0)
 fn test_correlate() {
     let a: Array1<usize> = (0..25).collect();
-    let a = a.into_shape((5, 5)).unwrap();
+    let a = a.into_shape_with_order((5, 5)).unwrap();
 
     let weight = arr2(&[[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
     assert_eq!(
@@ -574,7 +574,7 @@ fn test_gaussian_filter_1d() {
 #[test] // Results verified with SciPy. (v1.9.0)
 fn test_gaussian_filter_2d() {
     let a: Array1<f32> = (0..70).step_by(2).map(|v| v as f32).collect();
-    let mut a = a.into_shape((5, 7)).unwrap();
+    let mut a = a.into_shape_with_order((5, 7)).unwrap();
     a[(0, 0)] = 17.0;
     assert_relative_eq!(
         gaussian_filter(&a, 1.0, 0, BorderMode::Reflect, 4),
@@ -588,7 +588,7 @@ fn test_gaussian_filter_2d() {
         epsilon = 1e-4
     );
     let a: Array1<f32> = (0..84).step_by(2).map(|v| v as f32).collect();
-    let mut a = a.into_shape((6, 7)).unwrap();
+    let mut a = a.into_shape_with_order((6, 7)).unwrap();
     a[(0, 0)] = 8.5;
     assert_relative_eq!(
         gaussian_filter(&a, 1.0, 0, BorderMode::Reflect, 2),
@@ -604,7 +604,7 @@ fn test_gaussian_filter_2d() {
     );
 
     let a: Array1<f32> = (0..112).step_by(2).map(|v| v as f32).collect();
-    let mut a = a.into_shape((8, 7)).unwrap();
+    let mut a = a.into_shape_with_order((8, 7)).unwrap();
     a[(0, 0)] = 18.2;
     assert_relative_eq!(
         gaussian_filter(&a, 1.5, 0, BorderMode::Reflect, 3),
@@ -625,7 +625,7 @@ fn test_gaussian_filter_2d() {
 #[test] // Results verified with SciPy. (v1.9.0)
 fn test_gaussian_filter_3d() {
     let a: Array1<f32> = (0..720).map(|v| v as f32 / 50.0).collect();
-    let mut a = a.into_shape((10, 9, 8)).unwrap();
+    let mut a = a.into_shape_with_order((10, 9, 8)).unwrap();
     a[(0, 0, 0)] = 0.2;
     a[(3, 3, 3)] = 1.0;
 
@@ -693,7 +693,7 @@ fn test_uniform_filter_1d() {
 #[test] // Results verified with SciPy. (v1.9.1)
 fn test_uniform_filter_2d() {
     let a: Array1<f32> = (0..70).step_by(2).map(|v| v as f32).collect();
-    let mut a = a.into_shape((5, 7)).unwrap();
+    let mut a = a.into_shape_with_order((5, 7)).unwrap();
     a[(0, 0)] = 17.0;
     assert_relative_eq!(
         uniform_filter(&a, 4, BorderMode::Reflect),
@@ -707,7 +707,7 @@ fn test_uniform_filter_2d() {
         epsilon = 1e-5
     );
     let a: Array1<f32> = (0..84).step_by(2).map(|v| v as f32).collect();
-    let mut a = a.into_shape((6, 7)).unwrap();
+    let mut a = a.into_shape_with_order((6, 7)).unwrap();
     a[(0, 0)] = 8.5;
     assert_relative_eq!(
         uniform_filter(&a, 5, BorderMode::Reflect),
@@ -723,7 +723,7 @@ fn test_uniform_filter_2d() {
     );
 
     let a: Array1<f32> = (0..112).step_by(2).map(|v| v as f32).collect();
-    let mut a = a.into_shape((8, 7)).unwrap();
+    let mut a = a.into_shape_with_order((8, 7)).unwrap();
     a[(0, 0)] = 18.2;
     assert_relative_eq!(
         uniform_filter(&a, 3, BorderMode::Reflect),
@@ -744,7 +744,7 @@ fn test_uniform_filter_2d() {
 #[test] // Results verified with SciPy. (v1.9.1)
 fn test_uniform_filter_3d() {
     let a: Array1<f32> = (0..720).map(|v| v as f32 / 50.0).collect();
-    let mut a = a.into_shape((10, 9, 8)).unwrap();
+    let mut a = a.into_shape_with_order((10, 9, 8)).unwrap();
     a[(0, 0, 0)] = 0.2;
     a[(3, 3, 3)] = 1.0;
 
@@ -831,6 +831,115 @@ fn test_uniform_filter_panic() {
     let _ = uniform_filter(&a, 0, BorderMode::Reflect);
 }
 
+#[test] // Results verified with SciPy. (v1.9.1)
+fn test_uniform_filter_1d_ints() {
+    let a: Array1<i32> = (0..7).collect();
+    assert_eq!(uniform_filter(&a, 1, BorderMode::Reflect), arr1(&[0, 1, 2, 3, 4, 5, 6]));
+    assert_eq!(uniform_filter(&a.view(), 2, BorderMode::Reflect), arr1(&[0, 0, 1, 2, 3, 4, 5]));
+    assert_eq!(uniform_filter(&a.view(), 3, BorderMode::Reflect), arr1(&[0, 1, 2, 3, 4, 5, 5]));
+}
+
+#[test] // Results verified with SciPy. (v1.9.1)
+fn test_uniform_filter_2d_ints() {
+    let a: Array1<i32> = (0..70).step_by(2).collect();
+    let mut a = a.into_shape_with_order((5, 7)).unwrap();
+    a[(0, 0)] = 17;
+    assert_eq!(
+        uniform_filter(&a, 4, BorderMode::Reflect),
+        arr2(&[
+            [12, 12, 12, 12, 14, 16, 17],
+            [15, 16, 15, 15, 17, 19, 20],
+            [24, 24, 25, 26, 28, 30, 31],
+            [36, 36, 38, 40, 42, 44, 45],
+            [46, 46, 48, 50, 52, 54, 55]
+        ])
+    );
+
+    let a: Array1<i32> = (0..84).step_by(2).collect();
+    let mut a = a.into_shape_with_order((6, 7)).unwrap();
+    a[(0, 0)] = 8;
+    assert_eq!(
+        uniform_filter(&a, 5, BorderMode::Reflect),
+        arr2(&[
+            [13, 14, 15, 17, 19, 20, 21],
+            [19, 20, 20, 22, 24, 25, 26],
+            [30, 30, 32, 34, 36, 37, 38],
+            [43, 44, 46, 48, 50, 51, 52],
+            [54, 55, 57, 59, 61, 62, 63],
+            [59, 60, 62, 64, 66, 67, 68]
+        ])
+    );
+
+    let a: Array1<i32> = (0..112).step_by(2).collect();
+    let mut a = a.into_shape_with_order((8, 7)).unwrap();
+    a[(0, 0)] = 18;
+    assert_eq!(
+        uniform_filter(&a, 3, BorderMode::Reflect),
+        arr2(&[
+            [12, 10, 8, 10, 12, 14, 15],
+            [18, 18, 18, 20, 22, 24, 25],
+            [28, 30, 32, 34, 36, 38, 39],
+            [42, 44, 46, 48, 50, 52, 53],
+            [56, 58, 60, 62, 64, 66, 67],
+            [70, 72, 74, 76, 78, 80, 81],
+            [84, 86, 88, 90, 92, 94, 95],
+            [93, 95, 97, 99, 101, 103, 104]
+        ])
+    );
+}
+
+#[test] // Results verified with SciPy. (v1.9.1)
+fn test_uniform_filter_3d_ints() {
+    let a: Array1<i32> = (0..720).map(|v| v / 5).collect();
+    let mut a = a.into_shape_with_order((10, 9, 8)).unwrap();
+    a[(0, 0, 0)] = 2;
+    a[(3, 3, 3)] = 10;
+
+    let g = uniform_filter(&a, 6, BorderMode::Reflect);
+    assert_eq!(
+        g.slice(s![0, .., ..]),
+        arr2(&[
+            [15, 15, 15, 15, 15, 15, 15, 16],
+            [15, 15, 15, 15, 15, 16, 16, 16],
+            [16, 16, 16, 16, 16, 16, 16, 17],
+            [17, 17, 17, 17, 17, 18, 18, 18],
+            [19, 19, 19, 19, 19, 19, 19, 20],
+            [20, 20, 20, 20, 21, 21, 21, 21],
+            [22, 22, 22, 22, 22, 22, 23, 23],
+            [23, 23, 23, 23, 24, 24, 24, 24],
+            [24, 24, 24, 24, 24, 25, 25, 25]
+        ]),
+    );
+    assert_eq!(
+        g.slice(s![3, .., ..]),
+        arr2(&[
+            [37, 37, 37, 37, 37, 37, 37, 37],
+            [37, 36, 37, 37, 37, 37, 37, 38],
+            [38, 37, 37, 37, 38, 38, 38, 38],
+            [39, 38, 39, 39, 39, 39, 39, 40],
+            [40, 40, 40, 40, 41, 41, 41, 41],
+            [42, 41, 42, 42, 42, 42, 42, 43],
+            [44, 43, 43, 44, 44, 44, 44, 44],
+            [45, 45, 45, 45, 45, 45, 46, 46],
+            [46, 46, 46, 46, 46, 46, 46, 47]
+        ]),
+    );
+    assert_eq!(
+        g.slice(s![9, .., ..]),
+        arr2(&[
+            [113, 113, 113, 113, 113, 114, 114, 114],
+            [114, 114, 114, 114, 114, 114, 114, 114],
+            [114, 114, 114, 114, 114, 115, 115, 115],
+            [116, 116, 116, 116, 116, 116, 116, 116],
+            [117, 117, 117, 117, 117, 118, 118, 118],
+            [119, 119, 119, 119, 119, 119, 119, 120],
+            [120, 120, 120, 120, 121, 121, 121, 121],
+            [122, 122, 122, 122, 122, 122, 122, 123],
+            [123, 123, 123, 123, 123, 123, 123, 123]
+        ]),
+    );
+}
+
 #[test] // Results verified with SciPy. (v1.9.0)
 fn test_prewitt() {
     let a = arr1(&[2.0, 8.1, 0.5, 4.0, 1.1, 9.0, 9.0, 0.8]);
@@ -871,7 +980,7 @@ fn test_prewitt() {
     );
 
     let a: Array1<f32> = (0..720).map(|v| v as f32 / 50.0).collect();
-    let mut a = a.into_shape((10, 9, 8)).unwrap();
+    let mut a = a.into_shape_with_order((10, 9, 8)).unwrap();
     a[(0, 0, 0)] = 0.2;
     a[(3, 3, 3)] = 1.0;
 

@@ -1,5 +1,5 @@
 use ndarray::{
-    s, Array, Array1, ArrayBase, Axis, Data, Dimension, Ix1, ScalarOperand, ShapeBuilder, Zip,
+    s, Array, Array1, ArrayBase, Axis, Data, Dimension, Ix1, ScalarOperand, ShapeArg, Zip,
 };
 use num_traits::{FromPrimitive, Num, Signed};
 
@@ -203,7 +203,7 @@ where
         }
     };
     let rev_weights: Array1<_> = s.iter().rev().cloned().collect();
-    let rev_weights = rev_weights.into_shape(weights.dim()).unwrap();
+    let rev_weights = rev_weights.into_shape_with_order(weights.dim()).unwrap();
 
     origin = -origin;
     if weights.len() % 2 == 0 {
@@ -253,7 +253,8 @@ where
     let padded = pad(data, &[origin_check(weights.shape()[0], origin, n, n)], mode.to_pad_mode());
     let strides = padded.strides();
     let starting_idx_at = |idx: <D as Dimension>::Pattern| {
-        let idx = idx.into_shape().raw_dim().clone();
+        let (idx, _) = idx.into_shape_and_order();
+        let idx = idx.clone();
         (0..data.ndim()).fold(0, |offset, d| offset + idx[d] * strides[d] as usize)
     };
     let padded = padded.as_slice_memory_order().unwrap();
