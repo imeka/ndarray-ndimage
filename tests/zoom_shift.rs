@@ -263,7 +263,8 @@ fn zoom_modes() {
 
 #[test]
 fn test_order_0() {
-    let data = (0..18).collect::<Array1<_>>().into_shape((2, 3, 3)).unwrap().mapv(f64::from);
+    let data =
+        (0..18).collect::<Array1<_>>().into_shape_with_order((2, 3, 3)).unwrap().mapv(f64::from);
 
     assert_relative_eq!(
         shift(&data, [0.1, 0.2, 0.3], 0, BorderMode::Constant(1.0), true),
@@ -306,7 +307,8 @@ fn test_order_0() {
 
 #[test]
 fn test_order_1() {
-    let data = (0..18).collect::<Array1<_>>().into_shape((2, 3, 3)).unwrap().mapv(f64::from);
+    let data =
+        (0..18).collect::<Array1<_>>().into_shape_with_order((2, 3, 3)).unwrap().mapv(f64::from);
     let gt = arr3(&[
         [
             [0.0, 0.66666667, 1.33333333, 2.0],
@@ -337,7 +339,8 @@ fn test_order_1() {
 
 #[test]
 fn test_order_2() {
-    let data = (0..18).collect::<Array1<_>>().into_shape((2, 3, 3)).unwrap().mapv(f64::from);
+    let data =
+        (0..18).collect::<Array1<_>>().into_shape_with_order((2, 3, 3)).unwrap().mapv(f64::from);
     let zooms = [1.1, 1.0, 1.3];
     let gt = arr3(&[
         [
@@ -391,7 +394,8 @@ fn test_order_2() {
 
 #[test]
 fn test_order_4() {
-    let data = (0..18).collect::<Array1<_>>().into_shape((2, 3, 3)).unwrap().mapv(f64::from);
+    let data =
+        (0..18).collect::<Array1<_>>().into_shape_with_order((2, 3, 3)).unwrap().mapv(f64::from);
     let zooms = [1.1, 1.0, 1.3];
     let gt = arr3(&[
         [
@@ -445,7 +449,8 @@ fn test_order_4() {
 
 #[test]
 fn test_order_5() {
-    let data = (0..18).collect::<Array1<_>>().into_shape((2, 3, 3)).unwrap().mapv(f64::from);
+    let data =
+        (0..18).collect::<Array1<_>>().into_shape_with_order((2, 3, 3)).unwrap().mapv(f64::from);
     let zooms = [1.1, 1.0, 1.3];
     let gt = arr3(&[
         [
