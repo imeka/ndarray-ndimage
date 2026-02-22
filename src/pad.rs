@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 
 use ndarray::{
-    s, Array, Array1, ArrayBase, ArrayView1, Axis, AxisDescription, Data, Dimension, Slice, Zip,
+    s, Array, Array1, ArrayRef, ArrayView1, Axis, AxisDescription, Dimension, Slice, Zip
 };
 use ndarray_stats::QuantileExt;
 use num_traits::{FromPrimitive, Num, Zero};
@@ -129,9 +129,8 @@ enum PadAction {
 /// * `pad` - Number of values padded to the edges of each axis.
 /// * `mode` - Method that will be used to select the padded values. See the
 ///   [`PadMode`](crate::PadMode) enum for more information.
-pub fn pad<S, A, D>(data: &ArrayBase<S, D>, pad: &[[usize; 2]], mode: PadMode<A>) -> Array<A, D>
+pub fn pad<A, D>(data: &ArrayRef<A, D>, pad: &[[usize; 2]], mode: PadMode<A>) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Copy + FromPrimitive + Num + PartialOrd,
     D: Dimension,
 {
@@ -155,13 +154,12 @@ where
 /// * `mode` - Method that will be used to select the padded values. See the
 ///   [`PadMode`](crate::PadMode) enum for more information.
 /// * `output` - An already allocated N-D array used to write the results.
-pub fn pad_to<S, A, D>(
-    data: &ArrayBase<S, D>,
+pub fn pad_to<A, D>(
+    data: &ArrayRef<A, D>,
     pad: &[[usize; 2]],
     mode: PadMode<A>,
     output: &mut Array<A, D>,
 ) where
-    S: Data<Elem = A>,
     A: Copy + FromPrimitive + Num + PartialOrd,
     D: Dimension,
 {

@@ -1,4 +1,4 @@
-use ndarray::{s, Array, Array1, ArrayBase, Axis, Data, Dimension, Zip};
+use ndarray::{s, Array, Array1, ArrayRef, Axis, Dimension, Zip};
 use num_traits::{FromPrimitive, Num};
 
 use crate::{array_like, pad_to, BorderMode};
@@ -13,13 +13,12 @@ use crate::{array_like, pad_to, BorderMode};
 ///   [`BorderMode`](crate::BorderMode) enum for more information.
 ///
 /// **Panics** if `size` is zero, or one of the axis' lengths is lower than `size`.
-pub fn uniform_filter<S, A, D>(
-    data: &ArrayBase<S, D>,
+pub fn uniform_filter<A, D>(
+    data: &ArrayRef<A, D>,
     size: usize,
     mode: BorderMode<A>,
 ) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd + 'static,
     D: Dimension,
 {
@@ -59,30 +58,28 @@ where
 ///   [`BorderMode`](crate::BorderMode) enum for more information.
 ///
 /// **Panics** if `size` is zero, or the axis length is lower than `size`.
-pub fn uniform_filter1d<S, A, D>(
-    data: &ArrayBase<S, D>,
+pub fn uniform_filter1d<A, D>(
+    data: &ArrayRef<A, D>,
     size: usize,
     axis: Axis,
     mode: BorderMode<A>,
 ) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd + 'static,
     D: Dimension,
 {
-    let mut output = array_like(&data, data.dim(), A::zero());
+    let mut output = array_like(data, data.dim(), A::zero());
     inner_uniform1d(data, size, axis, mode, &mut output);
     output
 }
 
-pub(crate) fn inner_uniform1d<S, A, D>(
-    data: &ArrayBase<S, D>,
+pub(crate) fn inner_uniform1d<A, D>(
+    data: &ArrayRef<A, D>,
     size: usize,
     axis: Axis,
     mode: BorderMode<A>,
     output: &mut Array<A, D>,
 ) where
-    S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd,
     D: Dimension,
 {

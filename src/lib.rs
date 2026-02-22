@@ -3,7 +3,7 @@
 //! The `ndarray-image` crate provides multidimensional image processing for `ArrayBase`,
 //! the *n*-dimensional array data structure provided by [`ndarray`].
 
-use ndarray::{arr3, Array, Array3, ArrayBase, Data, Dimension, Ix3, ShapeBuilder};
+use ndarray::{arr3, Array, Array3, ArrayRef, ArrayRef3, Dimension, ShapeBuilder};
 
 mod filters;
 mod interpolation;
@@ -68,9 +68,8 @@ impl Kernel3d {
 
 /// Utility function that returns a new *n*-dimensional array of dimension `shape` with the same
 /// datatype and memory order as the input `arr`.
-pub fn array_like<S, A, D, Sh>(arr: &ArrayBase<S, D>, shape: Sh, elem: A) -> Array<A, D>
+pub fn array_like<A, D, Sh>(arr: &ArrayRef<A, D>, shape: Sh, elem: A) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Clone,
     D: Dimension,
     Sh: ShapeBuilder<Dim = D>,
@@ -84,9 +83,8 @@ where
 }
 
 /// Utilitary function that returns the mask dimension minus 1 on all dimensions.
-pub fn dim_minus<S, A>(mask: &ArrayBase<S, Ix3>, n: usize) -> (usize, usize, usize)
+pub fn dim_minus<A>(mask: &ArrayRef3<A>, n: usize) -> (usize, usize, usize)
 where
-    S: Data<Elem = A>,
     A: Clone,
 {
     let (width, height, depth) = mask.dim();

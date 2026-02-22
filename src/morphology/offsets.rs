@@ -1,4 +1,4 @@
-use ndarray::{ArrayBase, ArrayView3, Data, Ix3};
+use ndarray::{ArrayRef3, ArrayView3};
 
 pub struct Offsets {
     mask_strides: Vec<isize>,
@@ -17,9 +17,7 @@ pub struct Offsets {
 }
 
 impl Offsets {
-    pub fn new<S>(mask: &ArrayBase<S, Ix3>, kernel: ArrayView3<bool>, is_dilate: bool) -> Offsets
-    where
-        S: Data<Elem = bool>,
+    pub fn new<A>(mask: &ArrayRef3<A>, kernel: ArrayView3<bool>, is_dilate: bool) -> Offsets
     {
         let mask_shape = mask.shape();
         let mask_strides = mask.strides().to_vec();

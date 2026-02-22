@@ -1,6 +1,6 @@
 mod offsets;
 
-use ndarray::{Array3, ArrayBase, ArrayView3, ArrayViewMut3, Data, Ix3};
+use ndarray::{Array3, ArrayRef3, ArrayView3, ArrayViewMut3};
 
 use crate::Mask;
 use offsets::Offsets;
@@ -11,14 +11,11 @@ use offsets::Offsets;
 /// * `kernel` - Structuring element used for the erosion. Must be of odd length. The center must
 ///   be `true`.
 /// * `iterations` - The erosion is repeated iterations times.
-pub fn binary_erosion<SM, SK>(
-    mask: &ArrayBase<SM, Ix3>,
-    kernel: &ArrayBase<SK, Ix3>,
+pub fn binary_erosion(
+    mask: &ArrayRef3<bool>,
+    kernel: &ArrayRef3<bool>,
     iterations: usize,
 ) -> Mask
-where
-    SM: Data<Elem = bool>,
-    SK: Data<Elem = bool>,
 {
     mask.as_slice_memory_order()
         .expect("Morphological operations can only be called on arrays with contiguous memory.");
@@ -48,14 +45,11 @@ where
 /// * `kernel` - Structuring element used for the erosion. Must be of odd length. The center must
 ///   be `true`.
 /// * `iterations` - The dilation is repeated iterations times.
-pub fn binary_dilation<SM, SK>(
-    mask: &ArrayBase<SM, Ix3>,
-    kernel: &ArrayBase<SK, Ix3>,
+pub fn binary_dilation(
+    mask: &ArrayRef3<bool>,
+    kernel: &ArrayRef3<bool>,
     iterations: usize,
 ) -> Mask
-where
-    SM: Data<Elem = bool>,
-    SK: Data<Elem = bool>,
 {
     mask.as_slice_memory_order()
         .expect("Morphological operations can only be called on arrays with contiguous memory.");
@@ -92,14 +86,11 @@ where
 /// * `kernel` - Structuring element used for the opening.
 /// * `iterations` - The erosion step of the opening, then the dilation step are each repeated
 ///   iterations times.
-pub fn binary_opening<SM, SK>(
-    mask: &ArrayBase<SM, Ix3>,
-    kernel: &ArrayBase<SK, Ix3>,
+pub fn binary_opening(
+    mask: &ArrayRef3<bool>,
+    kernel: &ArrayRef3<bool>,
     iterations: usize,
 ) -> Mask
-where
-    SM: Data<Elem = bool>,
-    SK: Data<Elem = bool>,
 {
     let eroded = binary_erosion(mask, kernel, iterations);
     binary_dilation(&eroded, kernel, iterations)
@@ -118,14 +109,11 @@ where
 /// * `kernel` - Structuring element used for the closing.
 /// * `iterations` - The dilation step of the closing, then the erosion step are each repeated
 ///   iterations times.
-pub fn binary_closing<SM, SK>(
-    mask: &ArrayBase<SM, Ix3>,
-    kernel: &ArrayBase<SK, Ix3>,
+pub fn binary_closing(
+    mask: &ArrayRef3<bool>,
+    kernel: &ArrayRef3<bool>,
     iterations: usize,
 ) -> Mask
-where
-    SM: Data<Elem = bool>,
-    SK: Data<Elem = bool>,
 {
     let dilated = binary_dilation(mask, kernel, iterations);
     binary_erosion(&dilated, kernel, iterations)

@@ -1,4 +1,4 @@
-use ndarray::{s, ArrayBase, Data, Ix3, Zip};
+use ndarray::{s, ArrayRef3, Zip};
 
 use crate::{array_like, dim_minus, Mask};
 
@@ -6,9 +6,7 @@ use crate::{array_like, dim_minus, Mask};
 ///
 /// A 3x3 structuring element (`Kernel3d::Full`) is used except on the borders, where a smaller
 /// structuring element is used.
-pub fn median_filter<S>(mask: &ArrayBase<S, Ix3>) -> Mask
-where
-    S: Data<Elem = bool>,
+pub fn median_filter(mask: &ArrayRef3<bool>) -> Mask
 {
     let range = |i, max| {
         if i == 0 {

@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use ndarray::{Array, Array1, ArrayBase, Axis, Data, Dimension, ScalarOperand, Zip};
+use ndarray::{Array, Array1, ArrayRef, Axis, Dimension, ScalarOperand, Zip};
 use num_traits::{FromPrimitive, Num};
 
 use crate::{array_like, filters::origin_check, pad_to, BorderMode};
@@ -17,15 +17,14 @@ use crate::{array_like, filters::origin_check, pad_to, BorderMode};
 /// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
 ///   centers the filter over the pixel, with positive values shifting the filter to the left, and
 ///   negative ones to the right.
-pub fn maximum_filter1d<S, A, D>(
-    data: &ArrayBase<S, D>,
+pub fn maximum_filter1d<A, D>(
+    data: &ArrayRef<A, D>,
     size: usize,
     axis: Axis,
     mode: BorderMode<A>,
     origin: isize,
 ) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Copy + Num + PartialOrd + ScalarOperand + FromPrimitive,
     D: Dimension,
 {
@@ -43,14 +42,13 @@ where
 /// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
 ///   centers the filter over the pixel, with positive values shifting the filter to the left, and
 ///   negative ones to the right.
-pub fn maximum_filter<S, A, D>(
-    data: &ArrayBase<S, D>,
+pub fn maximum_filter<A, D>(
+    data: &ArrayRef<A, D>,
     size: usize,
     mode: BorderMode<A>,
     origin: isize,
 ) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Copy + Num + PartialOrd + ScalarOperand + FromPrimitive,
     D: Dimension,
 {
@@ -73,15 +71,14 @@ where
 /// Calculate a 1-D maximum filter along the given axis.
 ///
 /// See `maximum_filter1d`.
-pub fn maximum_filter1d_to<S, A, D>(
-    data: &ArrayBase<S, D>,
+pub fn maximum_filter1d_to<A, D>(
+    data: &ArrayRef<A, D>,
     size: usize,
     axis: Axis,
     mode: BorderMode<A>,
     origin: isize,
     output: &mut Array<A, D>,
 ) where
-    S: Data<Elem = A>,
     A: Copy + Num + PartialOrd + ScalarOperand + FromPrimitive,
     D: Dimension,
 {
@@ -102,15 +99,14 @@ pub fn maximum_filter1d_to<S, A, D>(
 /// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
 ///   centers the filter over the pixel, with positive values shifting the filter to the left, and
 ///   negative ones to the right.
-pub fn minimum_filter1d<S, A, D>(
-    data: &ArrayBase<S, D>,
+pub fn minimum_filter1d<A, D>(
+    data: &ArrayRef<A, D>,
     size: usize,
     axis: Axis,
     mode: BorderMode<A>,
     origin: isize,
 ) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Copy + Num + PartialOrd + ScalarOperand + FromPrimitive,
     D: Dimension,
 {
@@ -128,14 +124,13 @@ where
 /// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
 ///   centers the filter over the pixel, with positive values shifting the filter to the left, and
 ///   negative ones to the right.
-pub fn minimum_filter<S, A, D>(
-    data: &ArrayBase<S, D>,
+pub fn minimum_filter<A, D>(
+    data: &ArrayRef<A, D>,
     size: usize,
     mode: BorderMode<A>,
     origin: isize,
 ) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Copy + Num + PartialOrd + ScalarOperand + FromPrimitive,
     D: Dimension,
 {
@@ -158,15 +153,14 @@ where
 /// Calculate a 1-D minimum filter along the given axis.
 ///
 /// See `minimum_filter1d`.
-pub fn minimum_filter1d_to<S, A, D>(
-    data: &ArrayBase<S, D>,
+pub fn minimum_filter1d_to<A, D>(
+    data: &ArrayRef<A, D>,
     size: usize,
     axis: Axis,
     mode: BorderMode<A>,
     origin: isize,
     output: &mut Array<A, D>,
 ) where
-    S: Data<Elem = A>,
     A: Copy + Num + PartialOrd + ScalarOperand + FromPrimitive,
     D: Dimension,
 {
@@ -176,8 +170,8 @@ pub fn minimum_filter1d_to<S, A, D>(
 }
 
 /// MINLIST algorithm from Richard Harter
-fn min_or_max_filter<S, A, D, F1, F2>(
-    data: &ArrayBase<S, D>,
+fn min_or_max_filter<A, D, F1, F2>(
+    data: &ArrayRef<A, D>,
     filter_size: usize,
     axis: Axis,
     mode: BorderMode<A>,
@@ -186,7 +180,6 @@ fn min_or_max_filter<S, A, D, F1, F2>(
     f2: F2,
     output: &mut Array<A, D>,
 ) where
-    S: Data<Elem = A>,
     A: Copy + Num + PartialOrd + ScalarOperand + FromPrimitive,
     D: Dimension,
     F1: Fn(A, A) -> bool,

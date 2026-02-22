@@ -1,4 +1,4 @@
-use ndarray::{s, Array3, ArrayBase, Axis, Data, Ix3, Zip};
+use ndarray::{s, Array3, ArrayRef3, Axis, Zip};
 use num_traits::{Bounded, FromPrimitive, NumAssignOps, ToPrimitive, Unsigned};
 
 use crate::Mask;
@@ -26,10 +26,9 @@ where
 ///
 /// * `labels` - 3D labels image, returned by the `label` function.
 /// * `nb_features` - Number of unique labels, returned by the `label` function.
-pub fn label_histogram<S>(labels: &ArrayBase<S, Ix3>, nb_features: usize) -> Vec<usize>
+pub fn label_histogram<A>(labels: &ArrayRef3<A>, nb_features: usize) -> Vec<usize>
 where
-    S: Data,
-    S::Elem: LabelType,
+    A: LabelType,
 {
     let mut count = vec![0; nb_features + 1];
     Zip::from(labels).for_each(|&l| {
@@ -44,18 +43,17 @@ where
 ///
 /// * `labels` - 3D labels image, returned by the `label` function.
 /// * `nb_features` - Number of unique labels, returned by the `label` function.
-pub fn most_frequent_label<S>(
-    labels: &ArrayBase<S, Ix3>,
+pub fn most_frequent_label<A>(
+    labels: &ArrayRef3<A>,
     nb_features: usize,
-) -> Option<(S::Elem, usize)>
+) -> Option<(A, usize)>
 where
-    S: Data,
-    S::Elem: LabelType,
+    A: LabelType,
 {
     let hist = label_histogram(labels, nb_features);
     let (max, max_index) =
         hist[1..].iter().enumerate().fold((0, 0), |acc, (i, &nb)| acc.max((nb, i)));
-    (max > 0).then(|| (S::Elem::from_usize(max_index + 1).unwrap(), max))
+    (max > 0).then(|| (A::from_usize(max_index + 1).unwrap(), max))
 }
 
 /// Returns a new mask, containing the biggest zone of `mask`.
@@ -65,14 +63,12 @@ where
 ///   of [`Kernel3d::generate`](crate::Kernel3d::generate)) and centrosymmetric. The center must be `true`.
 ///
 /// The labeling is done using `u16`, this may be too small when `mask` has more than [`u16::MAX`] elements.
-pub fn largest_connected_components<S>(
-    mask: &ArrayBase<S, Ix3>,
-    structure: &ArrayBase<S, Ix3>,
+pub fn largest_connected_components(
+    mask: &ArrayRef3<bool>,
+    structure: &ArrayRef3<bool>,
 ) -> Option<Mask>
-where
-    S: Data<Elem = bool>,
 {
-    let (labels, nb_features) = label::<_, u16>(mask, structure);
+    let (labels, nb_features) = label::<u16>(mask, structure);
     let (right_label, _) = most_frequent_label(&labels, nb_features)?;
     Some(labels.mapv(|l| l == right_label))
 }
@@ -89,7 +85,7 @@ where
 ///
 /// ```
 /// // Will use `u16` as the label type
-/// ndarray_ndimage::label::<_, u16>(
+/// ndarray_ndimage::label::<u16>(
 ///     &ndarray::Array3::from_elem((100, 100, 100), true),
 ///     &ndarray_ndimage::Kernel3d::Star.generate()
 /// );
@@ -98,9 +94,8 @@ where
 /// As a rough rule of thumb, the maximum value of the label type should be larger than `data.len()`.
 /// This is the worst case, the exact bound will depend on the kernel used. If the label type overflows
 /// while assigning labels, a panic will occur.
-pub fn label<S, O>(data: &ArrayBase<S, Ix3>, structure: &ArrayBase<S, Ix3>) -> (Array3<O>, usize)
+pub fn label<O>(data: &ArrayRef3<bool>, structure: &ArrayRef3<bool>) -> (Array3<O>, usize)
 where
-    S: Data<Elem = bool>,
     O: LabelType,
 {
     assert!(structure.shape() == &[3, 3, 3], "`structure` must be size 3 in all dimensions");
