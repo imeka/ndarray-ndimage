@@ -1,5 +1,5 @@
 use ndarray::{
-    s, Array, Array1, ArrayBase, Axis, Data, Dimension, Ix1, ScalarOperand, ShapeArg, Zip,
+    s, Array, Array1, ArrayRef, ArrayRef1, Axis, Dimension, ScalarOperand, ShapeArg, Zip
 };
 use num_traits::{FromPrimitive, Num, Signed};
 
@@ -20,15 +20,14 @@ use crate::{array_like, pad, pad_to, BorderMode};
 /// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
 ///    centers the filter over the pixel, with positive values shifting the filter to the left, and
 ///    negative ones to the right.
-pub fn convolve1d<S, A, D>(
-    data: &ArrayBase<S, D>,
-    weights: &ArrayBase<S, Ix1>,
+pub fn convolve1d<A, D>(
+    data: &ArrayRef<A, D>,
+    weights: &ArrayRef1<A>,
     axis: Axis,
     mode: BorderMode<A>,
     mut origin: isize,
 ) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Copy + Num + ScalarOperand + FromPrimitive + PartialOrd,
     for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
@@ -64,15 +63,14 @@ where
 /// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
 ///    centers the filter over the pixel, with positive values shifting the filter to the left, and
 ///    negative ones to the right.
-pub fn correlate1d<S, A, D>(
-    data: &ArrayBase<S, D>,
-    weights: &ArrayBase<S, Ix1>,
+pub fn correlate1d<A, D>(
+    data: &ArrayRef<A, D>,
+    weights: &ArrayRef1<A>,
     axis: Axis,
     mode: BorderMode<A>,
     origin: isize,
 ) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + ScalarOperand + PartialOrd,
     for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
@@ -96,15 +94,14 @@ where
     output
 }
 
-pub(crate) fn inner_correlate1d<S, A, D>(
-    data: &ArrayBase<S, D>,
+pub(crate) fn inner_correlate1d<A, D>(
+    data: &ArrayRef<A, D>,
     weights: &[A],
     axis: Axis,
     mode: BorderMode<A>,
     origin: isize,
     output: &mut Array<A, D>,
 ) where
-    S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd,
     for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
@@ -179,14 +176,13 @@ pub(crate) fn inner_correlate1d<S, A, D>(
 /// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
 ///    centers the filter over the pixel, with positive values shifting the filter to the left, and
 ///    negative ones to the right.
-pub fn convolve<S, A, D>(
-    data: &ArrayBase<S, D>,
-    weights: &ArrayBase<S, D>,
+pub fn convolve<A, D>(
+    data: &ArrayRef<A, D>,
+    weights: &ArrayRef<A, D>,
     mode: BorderMode<A>,
     mut origin: isize,
 ) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd,
     D: Dimension,
 {
@@ -223,14 +219,13 @@ where
 /// * `origin` - Controls the placement of the filter on the input array’s pixels. A value of 0
 ///    centers the filter over the pixel, with positive values shifting the filter to the left, and
 ///    negative ones to the right.
-pub fn correlate<S, A, D>(
-    data: &ArrayBase<S, D>,
-    weights: &ArrayBase<S, D>,
+pub fn correlate<A, D>(
+    data: &ArrayRef<A, D>,
+    weights: &ArrayRef<A, D>,
     mode: BorderMode<A>,
     origin: isize,
 ) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd,
     D: Dimension,
 {
@@ -238,14 +233,13 @@ where
     _correlate(data, weights.to_owned(), mode, origin)
 }
 
-fn _correlate<S, A, D>(
-    data: &ArrayBase<S, D>,
+fn _correlate<A, D>(
+    data: &ArrayRef<A, D>,
     weights: Array<A, D>,
     mode: BorderMode<A>,
     origin: isize,
 ) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd,
     D: Dimension,
 {
@@ -278,9 +272,8 @@ where
 /// * `axis` - The axis of input along which to calculate.
 /// * `mode` - Method that will be used to select the padded values. See the
 ///   [`CorrelateMode`](crate::CorrelateMode) enum for more information.
-pub fn prewitt<S, A, D>(data: &ArrayBase<S, D>, axis: Axis, mode: BorderMode<A>) -> Array<A, D>
+pub fn prewitt<A, D>(data: &ArrayRef<A, D>, axis: Axis, mode: BorderMode<A>) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Copy + Signed + ScalarOperand + FromPrimitive + PartialOrd,
     for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
@@ -295,9 +288,8 @@ where
 /// * `axis` - The axis of input along which to calculate.
 /// * `mode` - Method that will be used to select the padded values. See the
 ///   [`CorrelateMode`](crate::CorrelateMode) enum for more information.
-pub fn sobel<S, A, D>(data: &ArrayBase<S, D>, axis: Axis, mode: BorderMode<A>) -> Array<A, D>
+pub fn sobel<A, D>(data: &ArrayRef<A, D>, axis: Axis, mode: BorderMode<A>) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Copy + Signed + ScalarOperand + FromPrimitive + PartialOrd,
     for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
@@ -306,14 +298,13 @@ where
     inner_prewitt_sobel(data, axis, mode, &second_weights)
 }
 
-fn inner_prewitt_sobel<S, A, D>(
-    data: &ArrayBase<S, D>,
+fn inner_prewitt_sobel<A, D>(
+    data: &ArrayRef<A, D>,
     axis: Axis,
     mode: BorderMode<A>,
     second_weights: &[A],
 ) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Copy + Signed + ScalarOperand + FromPrimitive + PartialOrd,
     for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,

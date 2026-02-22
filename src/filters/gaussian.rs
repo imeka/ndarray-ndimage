@@ -1,4 +1,4 @@
-use ndarray::{s, Array, Array1, Array2, ArrayBase, Axis, Data, Dimension, Zip};
+use ndarray::{s, Array, Array1, Array2, ArrayRef, Axis, Dimension, Zip};
 use num_traits::{Float, FromPrimitive};
 
 use crate::{array_like, BorderMode};
@@ -19,15 +19,14 @@ use super::{con_corr::inner_correlate1d, symmetry::SymmetryStateCheck};
 /// * `truncate` - Truncate the filter at this many standard deviations.
 ///
 /// **Panics** if one of the axis' lengths is lower than `truncate * sigma + 0.5`.
-pub fn gaussian_filter<S, A, D>(
-    data: &ArrayBase<S, D>,
+pub fn gaussian_filter<A, D>(
+    data: &ArrayRef<A, D>,
     sigma: A,
     order: usize,
     mode: BorderMode<A>,
     truncate: usize,
 ) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Float + FromPrimitive + 'static,
     for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,
@@ -73,8 +72,8 @@ where
 /// * `truncate` - Truncate the filter at this many standard deviations.
 ///
 /// **Panics** if the axis length is lower than `truncate * sigma + 0.5`.
-pub fn gaussian_filter1d<S, A, D>(
-    data: &ArrayBase<S, D>,
+pub fn gaussian_filter1d<A, D>(
+    data: &ArrayRef<A, D>,
     sigma: A,
     axis: Axis,
     order: usize,
@@ -82,7 +81,6 @@ pub fn gaussian_filter1d<S, A, D>(
     truncate: usize,
 ) -> Array<A, D>
 where
-    S: Data<Elem = A>,
     A: Float + FromPrimitive + 'static,
     for<'a> &'a [A]: SymmetryStateCheck,
     D: Dimension,

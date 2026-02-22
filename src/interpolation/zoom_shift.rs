@@ -1,6 +1,6 @@
 use std::ops::{Add, Sub};
 
-use ndarray::{s, Array, Array2, ArrayBase, ArrayViewMut1, Data, Ix3, Zip};
+use ndarray::{s, Array2, Array3, ArrayRef3, ArrayViewMut1, Zip};
 use num_traits::{FromPrimitive, Num, ToPrimitive};
 
 use crate::{array_like, pad, round_ties_even, spline_filter, BorderMode, PadMode};
@@ -18,15 +18,14 @@ use crate::{array_like, pad, round_ties_even, spline_filter, BorderMode, PadMode
 ///   interpolation. The default is `true`, which will create a temporary `f64` array of filtered
 ///   values if `order > 1`. If setting this to `false`, the output will be slightly blurred if
 ///   `order > 1`, unless the input is prefiltered.
-pub fn shift<S, A>(
-    data: &ArrayBase<S, Ix3>,
+pub fn shift<A>(
+    data: &ArrayRef3<A>,
     shift: [f64; 3],
     order: usize,
     mode: BorderMode<A>,
     prefilter: bool,
-) -> Array<A, Ix3>
+) -> Array3<A>
 where
-    S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd + ToPrimitive,
 {
     let dim = [data.dim().0, data.dim().1, data.dim().2];
@@ -46,15 +45,14 @@ where
 ///   interpolation. The default is `true`, which will create a temporary `f64` array of filtered
 ///   values if `order > 1`. If setting this to `false`, the output will be slightly blurred if
 ///   `order > 1`, unless the input is prefiltered.
-pub fn zoom<S, A>(
-    data: &ArrayBase<S, Ix3>,
+pub fn zoom<A>(
+    data: &ArrayRef3<A>,
     zoom: [f64; 3],
     order: usize,
     mode: BorderMode<A>,
     prefilter: bool,
-) -> Array<A, Ix3>
+) -> Array3<A>
 where
-    S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd + ToPrimitive,
 {
     let mut o_dim = data.raw_dim();
@@ -78,17 +76,16 @@ where
     run_zoom_shift(data, o_dim, zoom, [0.0, 0.0, 0.0], order, mode, prefilter)
 }
 
-fn run_zoom_shift<S, A>(
-    data: &ArrayBase<S, Ix3>,
+fn run_zoom_shift<A>(
+    data: &ArrayRef3<A>,
     odim: [usize; 3],
     zooms: [f64; 3],
     shifts: [f64; 3],
     order: usize,
     mode: BorderMode<A>,
     prefilter: bool,
-) -> Array<A, Ix3>
+) -> Array3<A>
 where
-    S: Data<Elem = A>,
     A: Copy + Num + FromPrimitive + PartialOrd + ToPrimitive,
 {
     let idim = [data.dim().0, data.dim().1, data.dim().2];
@@ -232,9 +229,8 @@ impl ZoomShiftReslicer {
     }
 
     /// Spline interpolation with up-to 8 neighbors of a point.
-    pub fn interpolate<A, S>(&self, data: &ArrayBase<S, Ix3>, start: (usize, usize, usize)) -> f64
+    pub fn interpolate<A>(&self, data: &ArrayRef3<A>, start: (usize, usize, usize)) -> f64
     where
-        S: Data<Elem = A>,
         A: ToPrimitive + Add<Output = A> + Sub<Output = A> + Copy,
     {
         if self.zeros[0][start.0] || self.zeros[1][start.1] || self.zeros[2][start.2] {

@@ -1,4 +1,4 @@
-use ndarray::{arr1, s, Array, Array1, ArrayBase, ArrayViewMut1, Axis, Data, Dimension};
+use ndarray::{arr1, s, Array, Array1, ArrayRef, ArrayViewMut1, Axis, Dimension};
 use num_traits::ToPrimitive;
 
 use crate::BorderMode;
@@ -13,13 +13,12 @@ use crate::BorderMode;
 /// * `mode` - The mode parameter determines how the input array is extended beyond its boundaries.
 ///
 /// **Panics** if `order` isn't in the range \[2, 5\].
-pub fn spline_filter<S, A, D>(
-    data: &ArrayBase<S, D>,
+pub fn spline_filter<A, D>(
+    data: &ArrayRef<A, D>,
     order: usize,
     mode: BorderMode<A>,
 ) -> Array<f64, D>
 where
-    S: Data<Elem = A>,
     A: Copy + ToPrimitive,
     D: Dimension,
 {
@@ -47,14 +46,13 @@ where
 /// * `axis` - The axis along which the spline filter is applied.
 ///
 /// **Panics** if `order` isn't in the range \[0, 5\].
-pub fn spline_filter1d<S, A, D>(
-    data: &ArrayBase<S, D>,
+pub fn spline_filter1d<A, D>(
+    data: &ArrayRef<A, D>,
     order: usize,
     mode: BorderMode<A>,
     axis: Axis,
 ) -> Array<f64, D>
 where
-    S: Data<Elem = A>,
     A: Copy + ToPrimitive,
     D: Dimension,
 {
