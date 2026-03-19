@@ -2,7 +2,7 @@
 name = "ndarray-ndimage"
 version = "0.5.0"
 authors = ["Nil Goyette <nil.goyette@imeka.ca>"]
-edition = "2021"
+edition = "2024"
 
 repository = "https://github.com/imeka/ndarray-ndimage"
 license = "MIT OR Apache-2.0"
