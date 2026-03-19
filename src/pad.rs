@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 
 use ndarray::{
-    s, Array, Array1, ArrayRef, ArrayView1, Axis, AxisDescription, Dimension, Slice, Zip
+    s, Array, Array1, ArrayRef, ArrayView1, Axis, AxisDescription, Dimension, Slice, Zip,
 };
 use ndarray_stats::QuantileExt;
 use num_traits::{FromPrimitive, Num, Zero};
@@ -272,7 +272,7 @@ pub fn pad_to<A, D>(
     }
 }
 
-fn read_pad(nb_dim: usize, pad: &[[usize; 2]]) -> Cow<[[usize; 2]]> {
+fn read_pad(nb_dim: usize, pad: &[[usize; 2]]) -> Cow<'_, [[usize; 2]]> {
     if pad.len() == 1 && pad.len() < nb_dim {
         // The user provided a single padding for all dimensions
         Cow::from(vec![pad[0]; nb_dim])
